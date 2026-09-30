@@ -189,6 +189,7 @@ Rails.application.routes.draw do
                 end
               end
               resource :contact_info_request, only: [:create]
+              resource :spam, only: [:create]
               resources :assignments, only: [:create]
               resources :labels, only: [:create, :index]
               resource :participants, only: [:show, :create, :update, :destroy]
