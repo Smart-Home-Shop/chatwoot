@@ -14,7 +14,8 @@ class Captain::SpamTriageService < Captain::BaseTaskService
     )
     return response if response[:error]
 
-    parse_verdict(response[:message])
+    # :message is kept so the Enterprise quota wrapper counts the call as successful
+    parse_verdict(response[:message]).merge(message: response[:message])
   end
 
   private
@@ -38,11 +39,17 @@ class Captain::SpamTriageService < Captain::BaseTaskService
   def parse_verdict(content)
     raw = content.to_s.strip
     parsed = JSON.parse(raw.match(/```json\s*(.*?)\s*```/m)&.captures&.first || raw)
-    return { error: 'Invalid LLM response format' } unless VERDICTS.include?(parsed['verdict'])
+    return { error: 'Invalid LLM response format' } unless valid_verdict?(parsed)
 
-    { verdict: parsed['verdict'], confidence: parsed['confidence'].to_f.clamp(0, 1), reason: parsed['reason'].to_s }
+    { verdict: parsed['verdict'], confidence: parsed['confidence'].to_f, reason: parsed['reason'].strip }
   rescue JSON::ParserError
     { error: 'Invalid LLM response format' }
+  end
+
+  def valid_verdict?(parsed)
+    parsed.is_a?(Hash) && VERDICTS.include?(parsed['verdict']) &&
+      parsed['confidence'].is_a?(Numeric) && parsed['confidence'].between?(0, 1) &&
+      parsed['reason'].is_a?(String) && parsed['reason'].strip.present?
   end
 
   def event_name
