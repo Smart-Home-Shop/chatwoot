@@ -99,6 +99,10 @@ class ConversationApi extends ApiClient {
     return axios.post(`${this.url}/${conversationId}/mute`);
   }
 
+  markSpam(conversationId) {
+    return axios.post(`${this.url}/${conversationId}/spam`);
+  }
+
   unmute(conversationId) {
     return axios.post(`${this.url}/${conversationId}/unmute`);
   }

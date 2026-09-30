@@ -5,6 +5,7 @@ import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import { useAlert } from 'dashboard/composables';
 import Button from 'dashboard/components-next/button/Button.vue';
+import ConversationAPI from 'dashboard/api/inbox/conversation';
 
 const props = defineProps({
   conversationId: {
@@ -13,7 +14,6 @@ const props = defineProps({
   },
 });
 
-const SPAM_LABEL = 'spam';
 const UNDO_WINDOW_SECONDS = 10;
 
 const store = useStore();
@@ -25,13 +25,9 @@ const secondsLeft = ref(UNDO_WINDOW_SECONDS);
 
 const markAsSpam = async conversationId => {
   try {
-    const labels =
-      store.getters['conversationLabels/getConversationLabels'](conversationId);
-    await store.dispatch('conversationLabels/update', {
-      conversationId,
-      labels: [...new Set([...labels, SPAM_LABEL])],
-    });
-    await store.dispatch('muteConversation', conversationId);
+    // One request labels and blocks server-side; the refresh updates this conversation, not whichever is selected
+    await ConversationAPI.markSpam(conversationId);
+    await store.dispatch('getConversation', conversationId);
     useAlert(t('CONVERSATION.HEADER.FLAG_SPAM.SUCCESS'));
   } catch {
     useAlert(t('CONVERSATION.HEADER.FLAG_SPAM.ERROR'));
