@@ -322,6 +322,8 @@ en:
   conversations:
     captain:
       handoff: 'Transferring to another agent for further assistance.'
+    spam_triage:
+      note: 'Suspected spam (%{confidence}%% confidence): %{reason}'
     messages:
       instagram_story_content: '%{story_sender} mentioned you in the story: '
       instagram_deleted_story_content: This story is no longer available.
