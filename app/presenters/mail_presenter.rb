@@ -74,7 +74,7 @@ class MailPresenter < SimpleDelegator
   # if inline, upload to AWS and and take the URL
   def attachments
     # ref : https://github.com/gorails-screencasts/action-mailbox-action-text/blob/master/app/mailboxes/posts_mailbox.rb
-    mail.attachments.map do |attachment|
+    attachment_parts.map do |attachment|
       blob = ActiveStorage::Blob.create_and_upload!(
         io: StringIO.new(attachment.body.to_s),
         filename: attachment.filename.presence || "attachment_#{SecureRandom.hex(4)}",
@@ -85,7 +85,7 @@ class MailPresenter < SimpleDelegator
   end
 
   def number_of_attachments
-    mail.attachments.count
+    attachment_parts.count
   end
 
   def serialized_data
@@ -180,6 +180,13 @@ class MailPresenter < SimpleDelegator
   end
 
   private
+
+  # Mail#attachments skips parts without a filename, which drops inline images referenced only by Content-ID
+  def attachment_parts
+    mail.all_parts.select do |part|
+      part.attachment? || (part.content_id.present? && part.mime_type.to_s.start_with?('image/'))
+    end
+  end
 
   def parse_mail_address(email)
     return if email.blank?
