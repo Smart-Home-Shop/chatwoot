@@ -22,7 +22,7 @@ RSpec.describe Conversations::SpamTriageJob do
       conversation.reload
 
       expect(conversation.label_list).to eq(['suspected-spam'])
-      expect(account.labels.find_by(title: 'suspected-spam')).to be_present
+      expect(account.labels.find_by(title: 'suspected-spam')).to have_attributes(show_on_sidebar: true)
       expect(conversation.messages.where(private: true).last.content).to eq('Suspected spam (92% confidence): Cold SEO pitch.')
       expect(conversation.additional_attributes['spam_triage']).to include('verdict' => 'spam', 'confidence' => 0.92, 'reason' => 'Cold SEO pitch.')
       expect(conversation.additional_attributes['spam_triage']).not_to have_key('message')

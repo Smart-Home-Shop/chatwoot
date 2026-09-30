@@ -39,7 +39,10 @@ class Conversations::SpamTriageJob < ApplicationJob
     label = LABELS[result[:verdict]]
     return unless label
 
-    conversation.account.labels.find_or_create_by!(title: label[:title]) { |record| record.color = label[:color] }
+    conversation.account.labels.find_or_create_by!(title: label[:title]) do |record|
+      record.color = label[:color]
+      record.show_on_sidebar = true
+    end
     conversation.add_labels([label[:title]])
     return unless result[:verdict] == 'spam'
 
