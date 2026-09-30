@@ -148,6 +148,15 @@
       "REOPEN_ACTION": "Reopen",
       "OPEN_ACTION": "Open",
       "MORE_ACTIONS": "More actions",
+      "FLAG_SPAM": {
+        "BUTTON": "Spam",
+        "TOOLTIP": "Label as spam and block the contact",
+        "COUNTDOWN": "Marking as spam in {seconds}s",
+        "UNDO": "Undo",
+        "CONFIRM": "Confirm",
+        "SUCCESS": "Marked as spam and the contact is blocked",
+        "ERROR": "Could not mark this conversation as spam, please try again"
+      },
       "OPEN": "More",
       "CLOSE": "Close",
       "DETAILS": "details",
