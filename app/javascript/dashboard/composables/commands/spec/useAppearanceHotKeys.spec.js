@@ -3,13 +3,18 @@ import { useI18n } from 'vue-i18n';
 import { LocalStorage } from 'shared/helpers/localStorage';
 import { LOCAL_STORAGE_KEYS } from 'dashboard/constants/localStorage';
 import { setColorTheme } from 'dashboard/helper/themeHelper.js';
+import { useUISettings } from 'dashboard/composables/useUISettings';
 
 vi.mock('vue-i18n');
 vi.mock('shared/helpers/localStorage');
 vi.mock('dashboard/helper/themeHelper.js');
+vi.mock('dashboard/composables/useUISettings');
 
 describe('useAppearanceHotKeys', () => {
+  const updateUISettings = vi.fn();
+
   beforeEach(() => {
+    useUISettings.mockReturnValue({ updateUISettings });
     useI18n.mockReturnValue({
       t: vi.fn(key => key),
     });
@@ -62,6 +67,7 @@ describe('useAppearanceHotKeys', () => {
       'light'
     );
     expect(setColorTheme).toHaveBeenCalledWith(false);
+    expect(updateUISettings).toHaveBeenCalledWith({ color_scheme: 'light' });
   });
 
   it('should handle system dark mode preference', () => {
