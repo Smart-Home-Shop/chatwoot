@@ -58,6 +58,10 @@
           "UPDATE_SUCCESS": "Your Language settings have been updated successfully",
           "UPDATE_ERROR": "There is an error while updating the language settings, please try again",
           "USE_ACCOUNT_DEFAULT": "Use account default"
+        },
+        "EXPAND_EMAILS": {
+          "TITLE": "Expand emails by default",
+          "NOTE": "Show emails at full length with quoted text visible, instead of collapsing them in the conversation."
         }
       },
       "MESSAGE_SIGNATURE_SECTION": {

@@ -15,13 +15,17 @@ import TranslationToggle from 'dashboard/components-next/message/TranslationTogg
 import { useMessageContext } from '../../provider.js';
 import { MESSAGE_TYPES } from 'next/message/constants.js';
 import { useTranslations } from 'dashboard/composables/useTranslations';
+import { useUISettings } from 'dashboard/composables/useUISettings';
 
 const { content, contentAttributes, attachments, messageType } =
   useMessageContext();
 
+const { uiSettings } = useUISettings();
+const expandByDefault = !!uiSettings.value.expand_email_messages;
+
 const isExpandable = ref(false);
-const isExpanded = ref(false);
-const showQuotedMessage = ref(false);
+const isExpanded = ref(expandByDefault);
+const showQuotedMessage = ref(expandByDefault);
 const renderOriginal = ref(false);
 const contentContainer = useTemplateRef('contentContainer');
 
