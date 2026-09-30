@@ -12,6 +12,7 @@ import UserProfilePicture from './UserProfilePicture.vue';
 import UserBasicDetails from './UserBasicDetails.vue';
 import MessageSignature from './MessageSignature.vue';
 import FontSize from './FontSize.vue';
+import ExpandEmailMessages from './ExpandEmailMessages.vue';
 import UserLanguageSelect from './UserLanguageSelect.vue';
 import ChangePassword from './ChangePassword.vue';
 import NotificationPreferences from './NotificationPreferences.vue';
@@ -33,6 +34,7 @@ export default {
     MessageSignature,
     SectionLayout,
     FontSize,
+    ExpandEmailMessages,
     UserLanguageSelect,
     UserProfilePicture,
     Policy,
@@ -269,6 +271,14 @@ export default {
           :label="$t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.LANGUAGE.TITLE')"
           :description="
             $t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.LANGUAGE.NOTE')
+          "
+        />
+        <ExpandEmailMessages
+          :label="
+            $t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.EXPAND_EMAILS.TITLE')
+          "
+          :description="
+            $t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.EXPAND_EMAILS.NOTE')
           "
         />
       </div>
