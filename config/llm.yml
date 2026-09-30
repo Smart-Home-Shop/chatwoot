@@ -126,6 +126,10 @@ features:
     models:
       [gpt-4.1-nano, gpt-4.1-mini, gpt-5-mini, gemini-3-flash, claude-haiku-4.5]
     default: gpt-4.1-mini
+  spam_triage:
+    models: [gpt-4.1-nano, gpt-4.1-mini, gpt-5-mini]
+    default: gpt-4.1-mini
+    internal: true
   document_faq_generation:
     models:
       [

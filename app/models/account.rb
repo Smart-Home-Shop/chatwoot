@@ -60,6 +60,7 @@ class Account < ApplicationRecord
   store_accessor :settings, :keep_pending_on_bot_failure
   store_accessor :settings, :captain_auto_resolve_mode
   store_accessor :settings, :enforce_mfa
+  store_accessor :settings, :spam_triage
   include AccountCaptainAutoResolve
 
   has_many :account_users, dependent: :destroy_async

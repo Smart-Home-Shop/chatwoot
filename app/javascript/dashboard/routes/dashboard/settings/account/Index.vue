@@ -15,6 +15,7 @@ import AccountId from './components/AccountId.vue';
 import BuildInfo from './components/BuildInfo.vue';
 import AccountDelete from './components/AccountDelete.vue';
 import AudioTranscription from './components/AudioTranscription.vue';
+import SpamTriage from './components/SpamTriage.vue';
 import SectionLayout from './components/SectionLayout.vue';
 
 export default {
@@ -25,6 +26,7 @@ export default {
     BuildInfo,
     AccountDelete,
     AudioTranscription,
+    SpamTriage,
     SectionLayout,
     WithLabel,
     NextInput,
@@ -248,6 +250,7 @@ export default {
       <woot-loading-state v-if="uiFlags.isFetchingItem" />
     </div>
     <AudioTranscription v-if="showAudioTranscriptionConfig" />
+    <SpamTriage />
     <AccountId />
     <div v-if="!uiFlags.isFetchingItem && isOnChatwootCloud">
       <AccountDelete />
