@@ -9,6 +9,7 @@ import {
 import { LocalStorage } from 'shared/helpers/localStorage';
 import { LOCAL_STORAGE_KEYS } from 'dashboard/constants/localStorage';
 import { setColorTheme } from 'dashboard/helper/themeHelper.js';
+import { useUISettings } from 'dashboard/composables/useUISettings';
 
 const getThemeOptions = t => [
   {
@@ -28,16 +29,20 @@ const getThemeOptions = t => [
   },
 ];
 
-const setAppearance = theme => {
+export const applyColorScheme = theme => {
   LocalStorage.set(LOCAL_STORAGE_KEYS.COLOR_SCHEME, theme);
-  const isOSOnDarkMode = window.matchMedia(
-    '(prefers-color-scheme: dark)'
-  ).matches;
-  setColorTheme(isOSOnDarkMode);
+  setColorTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
 };
 
 export function useAppearanceHotKeys() {
   const { t } = useI18n();
+  const { updateUISettings } = useUISettings();
+
+  // localStorage keeps first paint correct; the profile carries the choice across devices
+  const setAppearance = theme => {
+    applyColorScheme(theme);
+    updateUISettings({ color_scheme: theme });
+  };
 
   const themeOptions = computed(() => getThemeOptions(t));
 

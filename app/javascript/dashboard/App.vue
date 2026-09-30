@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router';
 import { useStore } from 'dashboard/composables/store';
 import WootSnackbarBox from './components/SnackbarContainer.vue';
 import { setColorTheme } from './helper/themeHelper';
+import { applyColorScheme } from 'dashboard/composables/commands/useAppearanceHotKeys';
 import { isOnOnboardingView } from 'v3/helpers/RouteHelper';
 import { useAccount } from 'dashboard/composables/useAccount';
 import { useFontSize } from 'dashboard/composables/useFontSize';
@@ -72,6 +73,14 @@ export default {
   },
 
   watch: {
+    'uiSettings.color_scheme': {
+      immediate: true,
+      handler(colorScheme) {
+        if (colorScheme) {
+          applyColorScheme(colorScheme);
+        }
+      },
+    },
     currentAccountId: {
       immediate: true,
       handler() {
