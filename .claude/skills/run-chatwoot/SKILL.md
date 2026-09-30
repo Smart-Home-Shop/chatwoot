@@ -82,6 +82,9 @@ a container restart (entrypoints run `bundle install` / `pnpm install --force` o
   page loading hashed `/vite-dev/assets/v3app-XXXX.js`, or `Blocked request. This host ("vite") is not allowed.`
 - **Host `curl localhost:3036` returns nothing** even when working - use the Rails proxy (`localhost:3000/vite-dev/...`) to check Vite.
 - **Login field is `input[name="email_address"]` with `type="text"`**, not `type="email"`.
+- **Driver login times out after many runs (sign-in returns `409 Conflict` in the Rails log)** - every `drive.sh` run starts a new
+  session and never logs out, so the seeded user hits the active-session limit (~25). Clear the dev sessions:
+  `docker compose exec -T rails bundle exec rails runner 'u = User.find_by!(email: "john@acme.inc"); u.user_sessions.delete_all; u.update!(tokens: {})'`
 - **First page load after `up` is slow** (Vite transforms modules on demand, ~15s+); the driver waits up to 4 min.
 - A single `404` console error on the dashboard/contacts page is normal in this setup.
 - `fatal: detected dubious ownership in repository at '/app'` and ``the attribute `version` is obsolete`` warnings are harmless.
