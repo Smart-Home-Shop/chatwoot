@@ -15,6 +15,6 @@ class SpamTriageListener < BaseListener
     conversation = message.conversation
     return false if conversation.campaign_id.present? || conversation.contact.blocked?
 
-    !conversation.messages.where(message_type: [:incoming, :outgoing]).exists?(id: ...message.id)
+    !conversation.messages.where(message_type: [:incoming, :outgoing], private: false).exists?(id: ...message.id)
   end
 end

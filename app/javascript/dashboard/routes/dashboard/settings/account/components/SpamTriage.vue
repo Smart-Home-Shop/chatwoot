@@ -25,6 +25,7 @@ const updateAccountSettings = async settings => {
     await updateAccount(settings);
     useAlert(t('GENERAL_SETTINGS.FORM.SPAM_TRIAGE.API.SUCCESS'));
   } catch (error) {
+    isEnabled.value = !!currentAccount.value?.settings?.spam_triage;
     useAlert(t('GENERAL_SETTINGS.FORM.SPAM_TRIAGE.API.ERROR'));
   }
 };
