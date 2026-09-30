@@ -48,6 +48,17 @@ RSpec.describe Conversations::SpamTriageJob do
     expect(conversation.additional_attributes.dig('spam_triage', 'confidence')).to eq(0.69)
   end
 
+  it 'labels a notification without adding a note' do
+    allow(service).to receive(:perform).and_return(verdict: 'notification', confidence: 0.9, reason: 'Carrier invoice.', message: '{}')
+
+    described_class.perform_now(message)
+    conversation.reload
+
+    expect(conversation.label_list).to eq(['notification'])
+    expect(conversation.messages.where(private: true)).to be_empty
+    expect(conversation.additional_attributes.dig('spam_triage', 'verdict')).to eq('notification')
+  end
+
   it 'stores a legit verdict without flagging' do
     allow(service).to receive(:perform).and_return(verdict: 'legit', confidence: 0.95, reason: 'Order query.', message: '{}')
 

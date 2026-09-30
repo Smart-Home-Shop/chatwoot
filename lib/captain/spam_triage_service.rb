@@ -1,5 +1,5 @@
 class Captain::SpamTriageService < Captain::BaseTaskService
-  VERDICTS = %w[spam legit uncertain].freeze
+  VERDICTS = %w[spam notification legit uncertain].freeze
   BODY_LIMIT = 4000
 
   pattr_initialize [:account!, :message!]
