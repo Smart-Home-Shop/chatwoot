@@ -1,8 +1,10 @@
 class Conversations::SpamTriageJob < ApplicationJob
   queue_as :low
 
-  LABEL = 'suspected-spam'.freeze
-  LABEL_COLOR = '#DC2626'.freeze
+  LABELS = {
+    'spam' => { title: 'suspected-spam', color: '#DC2626' },
+    'notification' => { title: 'notification', color: '#6B7280' }
+  }.freeze
   CONFIDENCE_THRESHOLD = 0.7
 
   def perform(message)
@@ -16,7 +18,7 @@ class Conversations::SpamTriageJob < ApplicationJob
     conversation.with_lock do
       next if triaged?(conversation)
 
-      flag_as_suspected_spam(conversation, result) if result[:verdict] == 'spam' && result[:confidence] >= CONFIDENCE_THRESHOLD
+      apply_label(conversation, result) if result[:confidence] >= CONFIDENCE_THRESHOLD
       store_verdict(conversation, result)
     end
   end
@@ -33,9 +35,16 @@ class Conversations::SpamTriageJob < ApplicationJob
     conversation.update!(additional_attributes: (conversation.additional_attributes || {}).merge('spam_triage' => verdict))
   end
 
-  def flag_as_suspected_spam(conversation, result)
-    conversation.account.labels.find_or_create_by!(title: LABEL) { |label| label.color = LABEL_COLOR }
-    conversation.add_labels([LABEL])
+  def apply_label(conversation, result)
+    label = LABELS[result[:verdict]]
+    return unless label
+
+    conversation.account.labels.find_or_create_by!(title: label[:title]) do |record|
+      record.color = label[:color]
+      record.show_on_sidebar = true
+    end
+    conversation.add_labels([label[:title]])
+    return unless result[:verdict] == 'spam'
 
     note = I18n.t('conversations.spam_triage.note', confidence: (result[:confidence] * 100).round, reason: result[:reason])
     Messages::MessageBuilder.new(nil, conversation, { content: note, private: true }).perform

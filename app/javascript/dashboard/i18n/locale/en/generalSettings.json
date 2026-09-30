@@ -106,7 +106,7 @@
       },
       "SPAM_TRIAGE": {
         "TITLE": "Flag suspected spam",
-        "NOTE": "Use AI to check the first message of each new conversation. Likely spam gets a suspected-spam label and a private note explaining why; the conversation stays open. Requires an OpenAI API key in Super Admin → Captain settings.",
+        "NOTE": "Use AI to check the first message of each new conversation. Likely spam gets a suspected-spam label and a private note explaining why, and automated mail from services you use gets a notification label; the conversation stays open. Requires an OpenAI API key in Super Admin → Captain settings.",
         "API": {
           "SUCCESS": "Spam triage setting updated successfully",
           "ERROR": "Failed to update spam triage setting"

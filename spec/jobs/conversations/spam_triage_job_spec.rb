@@ -22,7 +22,7 @@ RSpec.describe Conversations::SpamTriageJob do
       conversation.reload
 
       expect(conversation.label_list).to eq(['suspected-spam'])
-      expect(account.labels.find_by(title: 'suspected-spam')).to be_present
+      expect(account.labels.find_by(title: 'suspected-spam')).to have_attributes(show_on_sidebar: true)
       expect(conversation.messages.where(private: true).last.content).to eq('Suspected spam (92% confidence): Cold SEO pitch.')
       expect(conversation.additional_attributes['spam_triage']).to include('verdict' => 'spam', 'confidence' => 0.92, 'reason' => 'Cold SEO pitch.')
       expect(conversation.additional_attributes['spam_triage']).not_to have_key('message')
@@ -46,6 +46,17 @@ RSpec.describe Conversations::SpamTriageJob do
     expect(conversation.label_list).to be_empty
     expect(conversation.messages.where(private: true)).to be_empty
     expect(conversation.additional_attributes.dig('spam_triage', 'confidence')).to eq(0.69)
+  end
+
+  it 'labels a notification without adding a note' do
+    allow(service).to receive(:perform).and_return(verdict: 'notification', confidence: 0.9, reason: 'Carrier invoice.', message: '{}')
+
+    described_class.perform_now(message)
+    conversation.reload
+
+    expect(conversation.label_list).to eq(['notification'])
+    expect(conversation.messages.where(private: true)).to be_empty
+    expect(conversation.additional_attributes.dig('spam_triage', 'verdict')).to eq('notification')
   end
 
   it 'stores a legit verdict without flagging' do
