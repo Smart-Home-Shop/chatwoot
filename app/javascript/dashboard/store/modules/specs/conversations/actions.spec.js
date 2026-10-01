@@ -203,7 +203,7 @@ describe('#actions', () => {
     it('sends correct actions if API is success', async () => {
       axios.get.mockResolvedValue(null);
       await actions.muteConversation({ commit }, 1);
-      expect(commit.mock.calls).toEqual([[types.MUTE_CONVERSATION]]);
+      expect(commit.mock.calls).toEqual([[types.MUTE_CONVERSATION, 1]]);
     });
     it('sends correct actions if API is error', async () => {
       axios.get.mockRejectedValue({ message: 'Incorrect header' });
