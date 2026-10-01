@@ -36,6 +36,17 @@ RSpec.describe Conversations::SpamTriageGate do
       expect(gate.held_entries).to be_empty
     end
 
+    it 'drops the side effect when a spam verdict lands while it waits for the lock' do
+      stale_gate = described_class.new(conversation: Conversation.find(conversation.id))
+      conversation.update!(additional_attributes: { 'spam_triage' => { 'verdict' => 'spam' } }, label_list: ['suspected-spam'])
+      # not spam yet before the lock, flagged by the time the lock is held and the conversation is reloaded
+      allow(stale_gate).to receive_messages(awaiting_verdict?: true)
+      allow(stale_gate).to receive(:suspected_spam?).and_return(false, true)
+
+      expect(stale_gate.hold(entry)).to be(true)
+      expect(gate.held_entries).to be_empty
+    end
+
     it 'lets the side effect run once there is a verdict' do
       conversation.update!(additional_attributes: { 'spam_triage' => { 'verdict' => 'legit' } })
 

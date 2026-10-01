@@ -56,10 +56,19 @@ describe SpamTriageListener do
       auto_reply = create(:message, account: account, conversation: conversation, message_type: :incoming, content_type: :incoming_email,
                                     content_attributes: { email: { auto_reply: true } })
       event = Events::Base.new('message.created', Time.zone.now, message: auto_reply)
+      allow(Conversations::SpamTriageGate).to receive(:new).and_wrap_original do |original, **args|
+        original.call(**args).tap { |gate| allow(gate).to receive(:held?).and_return(true) }
+      end
 
       expect { listener.message_created(event) }
         .to have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
         .and not_have_enqueued_job(Conversations::SpamTriageJob)
+    end
+
+    it 'does not enqueue a release when nothing was held' do
+      account.update!(spam_triage: false)
+
+      expect { listener.message_created(event) }.not_to have_enqueued_job(Conversations::SpamTriageReleaseJob)
     end
 
     it 'does not triage private messages' do

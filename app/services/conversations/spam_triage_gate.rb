@@ -30,6 +30,8 @@ class Conversations::SpamTriageGate
     # If the lock can't be had, fail open and let the side effect run now.
     !!with_lock(wait: LOCK_WAIT) do
       conversation.reload
+      # A spam verdict that landed meanwhile drops the side effect rather than releasing it
+      next true if suspected_spam?
       next false unless awaiting_verdict?
 
       record(entry)
@@ -59,6 +61,10 @@ class Conversations::SpamTriageGate
   # Label-based so an agent removing a false positive restores normal behaviour
   def suspected_spam?
     conversation.label_list.include?(Conversations::SpamTriageJob::LABELS['spam'][:title])
+  end
+
+  def held?
+    Redis::Alfred.llen(held_key).positive?
   end
 
   # Oldest first, as [raw, parsed] pairs so each can be removed once replayed

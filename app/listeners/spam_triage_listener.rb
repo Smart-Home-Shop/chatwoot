@@ -6,7 +6,7 @@ class SpamTriageListener < BaseListener
 
     if gate.triage?(message)
       Conversations::SpamTriageJob.perform_later(message)
-    elsif !message.private? && gate.first_public_message?(message) && !gate.awaiting_verdict?
+    elsif gate.held? && !message.private? && gate.first_public_message?(message) && !gate.awaiting_verdict?
       # The thread turned out not to need triage (agent-started, auto-reply, ...), so anything held while that was
       # unknown can go out now rather than at the fallback deadline
       Conversations::SpamTriageReleaseJob.perform_later(message.conversation)
