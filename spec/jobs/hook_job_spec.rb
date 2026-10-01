@@ -43,6 +43,28 @@ RSpec.describe HookJob do
       described_class.perform_now(hook, event_name, event_data)
     end
 
+    it 'holds the Slack post instead of sending it while spam triage decides' do
+      hook = create(:integrations_hook, app_id: 'slack', account: account)
+      gate = instance_double(Conversations::SpamTriageGate, hold: true)
+      allow(Conversations::SpamTriageGate).to receive(:new).and_return(gate)
+      allow(SendOnSlackJob).to receive(:perform_later)
+
+      described_class.perform_now(hook, event_name, event_data)
+
+      expect(gate).to have_received(:hold).with(type: 'slack', message_id: event_data[:message].id, hook_id: hook.id)
+      expect(SendOnSlackJob).not_to have_received(:perform_later)
+    end
+
+    it 'updates the Slack conversation header when the status or assignee changes' do
+      hook = create(:integrations_hook, app_id: 'slack', account: account)
+      conversation = event_data[:message].conversation
+
+      %w[conversation.status_changed assignee.changed].each do |name|
+        expect { described_class.perform_now(hook, name, conversation: conversation) }
+          .to have_enqueued_job(UpdateSlackConversationHeaderJob).with(conversation, hook)
+      end
+    end
+
     it 'calls SendOnSlackJob when its a slack hook for message with attachments' do
       event_data = { message: create(:message, :with_attachment, account: account) }
       hook = create(:integrations_hook, app_id: 'slack', account: account)

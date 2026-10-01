@@ -431,6 +431,17 @@ en:
       name: 'Slack'
       short_description: 'Receive notifications and respond to conversations directly in Slack.'
       description: "Integrate Chatwoot with Slack to keep your team in sync. This integration allows you to receive notifications for new conversations and respond to them directly within Slack's interface."
+      conversation_header:
+        open_button: 'Open conversation'
+        unassigned: 'Unassigned'
+        assigned_to: 'Assigned to %{name}'
+        from: 'From %{sender}'
+        notification: 'Automated notification'
+        status:
+          open: 'Open'
+          pending: 'Pending'
+          snoozed: 'Snoozed'
+          resolved: 'Resolved'
     webhooks:
       name: 'Webhooks'
       description: 'Webhook events provide real-time updates about activities in your Chatwoot account. You can subscribe to your preferred events, and Chatwoot will send you HTTP callbacks with the updates.'

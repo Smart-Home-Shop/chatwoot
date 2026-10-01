@@ -23,6 +23,8 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
       replay_for_message(conversation, entry) { |message| Messages::NewMessageNotificationService.new(message: message).perform }
     when 'conversation_creation', 'assignment'
       replay_alert(conversation, entry)
+    when 'slack'
+      replay_slack(conversation, entry)
     end
   end
 
@@ -39,6 +41,15 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
       agent = conversation.inbox.members.find_by(id: entry['user_id'])
       NotificationListener.instance.notify_conversation_creation(conversation, agent) if agent
     end
+  end
+
+  # Inline and in order, so the conversation header is posted with the first held message and the thread keeps its order.
+  # Already-posted messages are skipped by the Slack service (external_source_id_slack), so a retry can't post twice.
+  def replay_slack(conversation, entry)
+    hook = conversation.account.hooks.find_by(id: entry['hook_id'])
+    return if hook.blank? || hook.disabled?
+
+    replay_for_message(conversation, entry) { |message| ::SendOnSlackJob.perform_now(message, hook) }
   end
 
   def replay_for_message(conversation, entry)

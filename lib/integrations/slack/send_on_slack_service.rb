@@ -46,15 +46,12 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     update_external_source_id_slack
   end
 
+  # Messages always go in the conversation's thread; the channel shows only the conversation header
   def message_content
     private_indicator = message.private? ? 'private: ' : ''
     sanitized_content = ActionView::Base.full_sanitizer.sanitize(format_message_content)
 
-    if conversation.identifier.present?
-      "#{private_indicator}#{sanitized_content}"
-    else
-      "#{formatted_inbox_name}#{formatted_conversation_link}#{email_subject_line}\n#{sanitized_content}"
-    end
+    "#{private_indicator}#{sanitized_content}"
   end
 
   def format_message_content
@@ -71,23 +68,6 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     end
   end
 
-  def formatted_inbox_name
-    "\n*Inbox:* #{message.inbox.name} (#{message.inbox.inbox_type})\n"
-  end
-
-  def formatted_conversation_link
-    "#{link_to_conversation} to view the conversation.\n"
-  end
-
-  def email_subject_line
-    return '' unless message.inbox.email?
-
-    email_payload = message.content_attributes['email']
-    return "*Subject:* #{email_payload['subject']}\n\n" if email_payload.present? && email_payload['subject'].present?
-
-    ''
-  end
-
   def avatar_url(sender)
     sender_type = sender_type(sender).downcase
     blob_key = sender&.avatar&.attached? ? sender.avatar.blob.key : nil
@@ -100,6 +80,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   end
 
   def send_message
+    post_conversation_header if conversation.identifier.blank?
     post_message if message_content.present?
     upload_files if message.attachments.any?
   rescue Slack::Web::Api::Errors::IsArchived, Slack::Web::Api::Errors::AccountInactive, Slack::Web::Api::Errors::MissingScope,
@@ -110,6 +91,16 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     hook.disable
   end
 
+  # The channel message for a new conversation; its ts becomes the thread the conversation's messages are posted in
+  def post_conversation_header
+    header = slack_client.chat_postMessage(
+      channel: hook.reference_id,
+      **Integrations::Slack::ConversationHeaderBuilder.new(conversation: conversation).payload,
+      unfurl_links: false
+    )
+    conversation.update!(identifier: header['ts'])
+  end
+
   def post_message
     @slack_message = slack_client.chat_postMessage(
       channel: hook.reference_id,
@@ -117,7 +108,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
       username: sender_name(message.sender),
       thread_ts: conversation.identifier,
       icon_url: avatar_url(message.sender),
-      unfurl_links: conversation.identifier.present?
+      unfurl_links: true
     )
   end
 
@@ -199,10 +190,6 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
 
   def slack_client
     @slack_client ||= Slack::Web::Client.new(token: hook.access_token)
-  end
-
-  def link_to_conversation
-    "<#{ENV.fetch('FRONTEND_URL', nil)}/app/accounts/#{conversation.account_id}/conversations/#{conversation.display_id}|Click here>"
   end
 
   # Determines whether the conversation identifier should be updated with the ts value.

@@ -49,6 +49,20 @@ RSpec.describe Conversations::SpamTriageReleaseJob do
       expect(gate.held_entries).to be_empty
     end
 
+    it 'posts held Slack messages in order, inline' do
+      slack_hook = create(:integrations_hook, app_id: 'slack', account: account)
+      # held while the verdict was still pending
+      verdict = conversation.additional_attributes
+      conversation.update!(additional_attributes: {})
+      gate.hold(type: 'slack', message_id: message.id, hook_id: slack_hook.id)
+      conversation.update!(additional_attributes: verdict)
+      allow(SendOnSlackJob).to receive(:perform_now)
+
+      described_class.perform_now(conversation)
+
+      expect(SendOnSlackJob).to have_received(:perform_now).with(message, slack_hook)
+    end
+
     it 'skips a held assignment alert when the conversation has since been reassigned' do
       described_class.perform_now(conversation)
 

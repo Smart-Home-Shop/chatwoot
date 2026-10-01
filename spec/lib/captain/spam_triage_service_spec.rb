@@ -27,8 +27,20 @@ RSpec.describe Captain::SpamTriageService do
     it 'returns the verdict and keeps the raw message for usage metering' do
       respond_with('{"verdict":"spam","confidence":0.92,"reason":" Cold SEO pitch. "}')
 
-      expect(service.perform).to eq(verdict: 'spam', confidence: 0.92, reason: 'Cold SEO pitch.',
+      expect(service.perform).to eq(verdict: 'spam', confidence: 0.92, reason: 'Cold SEO pitch.', summary: nil,
                                     message: '{"verdict":"spam","confidence":0.92,"reason":" Cold SEO pitch. "}')
+    end
+
+    it 'returns the summary when the LLM gives one' do
+      respond_with('{"verdict":"legit","confidence":0.9,"reason":"Order query.","summary":" Asks when order 10442 will ship. "}')
+
+      expect(service.perform).to include(summary: 'Asks when order 10442 will ship.')
+    end
+
+    it 'rejects a non-string summary' do
+      respond_with('{"verdict":"legit","confidence":0.9,"reason":"Order query.","summary":42}')
+
+      expect(service.perform).to include(error: 'Invalid LLM response format')
     end
 
     it 'accepts JSON wrapped in a code fence' do

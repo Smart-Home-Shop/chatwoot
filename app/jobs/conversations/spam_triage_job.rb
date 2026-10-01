@@ -65,7 +65,7 @@ class Conversations::SpamTriageJob < ApplicationJob
 
   # Stored for every verdict so agent decisions can later be compared against it
   def store_verdict(conversation, result)
-    verdict = result.slice(:verdict, :confidence, :reason).merge(triaged_at: Time.current.iso8601).stringify_keys
+    verdict = result.slice(:verdict, :confidence, :reason, :summary).compact.merge(triaged_at: Time.current.iso8601).stringify_keys
     conversation.update!(additional_attributes: (conversation.additional_attributes || {}).merge('spam_triage' => verdict))
   end
 
