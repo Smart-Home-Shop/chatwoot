@@ -39,6 +39,16 @@ RSpec.describe Conversations::SpamTriageReleaseJob do
       expect(gate.held_entries).to be_empty
     end
 
+    it 'does not alert again when a crashed release already sent the alert before removing its entry' do
+      conversation.update!(assignee: agent)
+      create(:notification, user: agent, account: account, primary_actor: conversation, notification_type: 'conversation_assignment')
+
+      described_class.perform_now(conversation)
+
+      expect(NotificationListener.instance).not_to have_received(:notify_assignee)
+      expect(gate.held_entries).to be_empty
+    end
+
     it 'skips a held assignment alert when the conversation has since been reassigned' do
       described_class.perform_now(conversation)
 

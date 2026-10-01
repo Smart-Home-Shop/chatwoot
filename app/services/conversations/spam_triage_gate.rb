@@ -94,10 +94,12 @@ class Conversations::SpamTriageGate
     Conversations::SpamTriageReleaseJob.set(wait_until: deadline).perform_later(conversation) if first_hold
   end
 
+  # Owner-token lock: only the holder can release it, so an expired lease can't delete a later owner's lock.
+  # Draining is a handful of quick writes, well inside LOCK_TIMEOUT.
   def with_lock(wait: 0)
-    lock_manager = Redis::LockManager.new
+    token = SecureRandom.uuid
     give_up_at = Time.current + wait
-    until lock_manager.lock(lock_key, LOCK_TIMEOUT)
+    until Redis::Alfred.set(lock_key, token, nx: true, ex: LOCK_TIMEOUT)
       return false if Time.current >= give_up_at
 
       sleep 0.05
@@ -106,7 +108,7 @@ class Conversations::SpamTriageGate
     begin
       yield
     ensure
-      lock_manager.unlock(lock_key)
+      Redis::Alfred.delete_if_equals(lock_key, token)
     end
   end
 

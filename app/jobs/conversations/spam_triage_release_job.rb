@@ -22,12 +22,23 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
       replay_for_message(conversation, entry) { |message| ::MessageTemplates::HookExecutionService.new(message: message).perform }
     when 'new_message'
       replay_for_message(conversation, entry) { |message| Messages::NewMessageNotificationService.new(message: message).perform }
-    when 'conversation_creation'
-      agent = conversation.inbox.members.find_by(id: entry['user_id'])
-      NotificationListener.instance.notify_conversation_creation(conversation, agent) if agent
-    when 'assignment'
+    when 'conversation_creation', 'assignment'
+      replay_alert(conversation, entry)
+    end
+  end
+
+  # A retry after a crash between sending and removing the entry must not alert the same agent twice. These alerts are
+  # one per agent per conversation; templates and new-message alerts already guard themselves.
+  def replay_alert(conversation, entry)
+    type = entry['type'] == 'assignment' ? 'conversation_assignment' : 'conversation_creation'
+    return if Notification.exists?(user_id: entry['user_id'], primary_actor: conversation, notification_type: type)
+
+    if entry['type'] == 'assignment'
       # Only the assignment that was actually held, and only if it still stands
       NotificationListener.instance.notify_assignee(conversation) if conversation.assignee_id == entry['user_id']
+    else
+      agent = conversation.inbox.members.find_by(id: entry['user_id'])
+      NotificationListener.instance.notify_conversation_creation(conversation, agent) if agent
     end
   end
 
