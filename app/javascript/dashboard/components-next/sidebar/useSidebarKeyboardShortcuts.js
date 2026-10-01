@@ -1,6 +1,9 @@
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
 import { useRoute, useRouter } from 'vue-router';
-import { useGmailShortcuts } from 'dashboard/composables/useGmailShortcuts';
+import {
+  useGmailShortcuts,
+  isNonLegacyOverlayOpen,
+} from 'dashboard/composables/useGmailShortcuts';
 
 export function useSidebarKeyboardShortcuts(toggleShortcutModalFn) {
   const route = useRoute();
@@ -43,11 +46,7 @@ export function useSidebarKeyboardShortcuts(toggleShortcutModalFn) {
       GO_TO_CONTACTS: () => navigateToRoute('contacts_dashboard_index'),
       // ? may fire over a legacy modal only to close the shortcut overlay; never over native dialogs or the palette
       HELP: () => {
-        if (
-          document.querySelector('ninja-keys')?.visible ||
-          document.querySelector('dialog[open]')
-        )
-          return false;
+        if (isNonLegacyOverlayOpen()) return false;
         return toggleShortcutModalFn(!document.querySelector('.modal-mask'));
       },
     },
