@@ -127,6 +127,24 @@ RSpec.describe ReplyMailbox do
       end
     end
 
+    context 'with an inline image that has a Content-ID but no filename' do
+      let(:mail) { create_inbound_email_from_fixture('mail_with_inline_image_without_filename.eml') }
+
+      before do
+        conversation.update!(uuid: '6bdc3f4d-0bed-4515-a284-5d916fdde489')
+        described_class.receive mail
+      end
+
+      # The mail gem's #attachments skips parts without a filename; MailPresenter must still pick this image up
+      it 'rewrites the cid reference to the uploaded image' do
+        html_full_content = conversation.messages.last.content_attributes[:email][:html_content][:full]
+
+        expect(html_full_content).not_to include('cid:fault_photo')
+        expect(html_full_content).to match(%r{<img src="http[^"]+/rails/active_storage/blobs/redirect/[^"]+"})
+        expect(conversation.messages.last.attachments.count).to eq(0)
+      end
+    end
+
     context 'with inline attachments and plain text' do
       let(:mail_with_plain_text_and_inline_image) { create_inbound_email_from_fixture('mail_with_plain_text_and_inline_image.eml') }
       let(:described_subject) { described_class.receive mail_with_plain_text_and_inline_image }
