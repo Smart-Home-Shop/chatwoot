@@ -51,9 +51,20 @@ const isOverlayOpen = () =>
   !!document.querySelector('ninja-keys')?.visible ||
   !!document.querySelector('.modal-mask, dialog[open]');
 
+// Ctrl/Cmd/Alt combinations belong to the browser and the existing Alt shortcuts
+const hasCommandModifier = e => e.ctrlKey || e.metaKey || e.altKey;
+
+// Enter must keep activating focused buttons, links and other controls
+const isEnterOnInteractiveElement = e =>
+  e.key === 'Enter' &&
+  !!e.target?.closest?.(
+    'a, button, select, summary, [role="button"], [role="switch"], [role="menuitem"], [role="option"]'
+  );
+
 /**
  * Registers Gmail-style single-key shortcuts for the mounting component.
  * They only act when the agent has enabled keyboard shortcuts, and never while typing (useKeyboardEvents guards inputs).
+ * A handler returns false when it had nothing to do, so the key keeps its native behaviour.
  * @param {Object} actions - map of GMAIL_SHORTCUTS ids to handlers
  * @param {Object} [options] - { allowOverOverlay: ids that may fire while a modal is open, e.g. HELP to close it }
  */
@@ -65,9 +76,9 @@ export function useGmailShortcuts(actions, { allowOverOverlay = [] } = {}) {
     GMAIL_SHORTCUTS[id].keys.forEach(key => {
       events[key] = e => {
         if (!uiSettings.value?.[GMAIL_SHORTCUTS_SETTING]) return;
+        if (hasCommandModifier(e) || isEnterOnInteractiveElement(e)) return;
         if (!allowOverOverlay.includes(id) && isOverlayOpen()) return;
-        e.preventDefault();
-        action(e);
+        if (action(e) !== false) e.preventDefault();
       };
     });
   });

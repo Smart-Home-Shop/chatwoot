@@ -918,9 +918,9 @@ useGmailShortcuts({
   NEXT: () => moveInList(1),
   PREVIOUS: () => moveInList(-1),
   OPEN: () => {
-    if (!openConversationId.value && focusedConversationId.value) {
-      router.push(buildConversationPath(focusedConversationId.value));
-    }
+    if (openConversationId.value || !focusedConversationId.value) return false;
+    router.push(buildConversationPath(focusedConversationId.value));
+    return true;
   },
   BACK_TO_LIST: () => {
     if (!openConversationId.value) return;
