@@ -17,16 +17,23 @@ class Conversations::SpamTriageJob < ApplicationJob
     # holds the lock records the verdict and releases what was held (and Sidekiq retries it if it fails).
     token = SecureRandom.uuid
     lock_key = format(::Redis::RedisKeys::SPAM_TRIAGE_RUN_LOCK, conversation_id: conversation.id)
-    return unless Redis::Alfred.set(lock_key, token, nx: true, ex: RUN_LOCK_TIMEOUT)
+    # Busy: come back once the lease has run out, in case its holder died; the triaged? guard makes this cheap otherwise
+    return retry_after_lease(message, lock_key) unless Redis::Alfred.set(lock_key, token, nx: true, ex: RUN_LOCK_TIMEOUT)
 
     begin
-      triage(message, conversation)
+      # Another run may have recorded the verdict between our check and taking the lock
+      triage(message, conversation) unless triaged?(conversation.reload)
     ensure
       Redis::Alfred.delete_if_equals(lock_key, token)
     end
   end
 
   private
+
+  def retry_after_lease(message, lock_key)
+    remaining = Redis::Alfred.ttl(lock_key)
+    self.class.set(wait: [remaining, 0].max + 1).perform_later(message)
+  end
 
   def triage(message, conversation)
     result = Captain::SpamTriageService.new(account: message.account, message: message).perform
