@@ -69,11 +69,41 @@ RSpec.describe Conversations::SpamTriageJob do
     expect(conversation.additional_attributes.dig('spam_triage', 'verdict')).to eq('legit')
   end
 
-  it 'raises and stores nothing when the service fails, so the job is retried' do
-    allow(service).to receive(:perform).and_return(error: 'Invalid LLM response format')
+  context 'when releasing auto-replies and alerts held during triage' do
+    let(:hook_service) { instance_double(MessageTemplates::HookExecutionService, perform: true) }
 
-    expect { described_class.perform_now(message) }.to raise_error(RuntimeError, /Spam triage failed/)
-    expect(conversation.reload.additional_attributes).not_to have_key('spam_triage')
+    before do
+      allow(MessageTemplates::HookExecutionService).to receive(:new).and_return(hook_service)
+      allow(NotificationListener.instance).to receive(:release_spam_triage_hold)
+    end
+
+    it 'releases them when the conversation is not suspected spam' do
+      allow(service).to receive(:perform).and_return(verdict: 'legit', confidence: 0.95, reason: 'Order query.', message: '{}')
+
+      described_class.perform_now(message)
+
+      expect(hook_service).to have_received(:perform)
+      expect(NotificationListener.instance).to have_received(:release_spam_triage_hold).with(conversation)
+    end
+
+    it 'keeps them held when the conversation is flagged as suspected spam' do
+      allow(service).to receive(:perform).and_return(spam_result)
+
+      described_class.perform_now(message)
+
+      # the private note is a new message and runs its own (held) hook, so assert on the contact's message only
+      expect(MessageTemplates::HookExecutionService).not_to have_received(:new).with(message: message)
+      expect(NotificationListener.instance).not_to have_received(:release_spam_triage_hold)
+    end
+
+    it 'records an error verdict, releases them and raises when the service fails' do
+      allow(service).to receive(:perform).and_return(error: 'Invalid LLM response format')
+
+      expect { described_class.perform_now(message) }.to raise_error(RuntimeError, /Spam triage failed/)
+      expect(conversation.reload.additional_attributes.dig('spam_triage', 'verdict')).to eq('error')
+      expect(hook_service).to have_received(:perform)
+      expect(NotificationListener.instance).to have_received(:release_spam_triage_hold)
+    end
   end
 
   it 'rolls back the verdict when flagging fails' do

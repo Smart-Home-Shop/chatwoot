@@ -4,6 +4,8 @@ class MessageTemplates::HookExecutionService
   def perform
     return if conversation.last_incoming_message.blank?
     return if message.auto_reply_email?
+    # Held until spam triage decides; Conversations::SpamTriageJob re-runs this once the conversation isn't suspected spam
+    return if Conversations::SpamTriageGate.new(conversation: conversation).hold?
 
     trigger_templates
   end

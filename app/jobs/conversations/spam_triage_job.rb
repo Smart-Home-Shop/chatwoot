@@ -12,18 +12,33 @@ class Conversations::SpamTriageJob < ApplicationJob
     return if triaged?(conversation)
 
     result = Captain::SpamTriageService.new(account: message.account, message: message).perform
-    raise "Spam triage failed for conversation #{conversation.id}: #{result[:error]}" if result[:error]
+    # A failed triage still records a verdict so held auto-replies and alerts go out (fail open); the error is raised below
+    result = { verdict: 'error', confidence: 0.0, reason: result[:error] } if result[:error]
 
     # Flagging and the verdict marker commit together, so a failed retry never leaves a verdict without its label and note
-    conversation.with_lock do
-      next if triaged?(conversation)
+    decided = conversation.with_lock do
+      next false if triaged?(conversation)
 
       apply_label(conversation, result) if result[:confidence] >= CONFIDENCE_THRESHOLD
       store_verdict(conversation, result)
+      true
     end
+
+    # Only the job that recorded the verdict releases what was held, so concurrent runs can't send twice
+    release_hold(message) if decided
+    raise "Spam triage failed for conversation #{conversation.id}: #{result[:reason]}" if result[:verdict] == 'error'
   end
 
   private
+
+  # Sends the auto-replies and agent alerts held by Conversations::SpamTriageGate, unless the conversation is now flagged
+  def release_hold(message)
+    conversation = message.conversation.reload
+    return if Conversations::SpamTriageGate.new(conversation: conversation).hold?
+
+    ::MessageTemplates::HookExecutionService.new(message: message).perform
+    NotificationListener.instance.release_spam_triage_hold(conversation)
+  end
 
   def triaged?(conversation)
     conversation.additional_attributes&.key?('spam_triage')
