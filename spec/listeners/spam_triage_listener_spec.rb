@@ -1,5 +1,7 @@
 require 'rails_helper'
 
+RSpec::Matchers.define_negated_matcher :not_have_enqueued_job, :have_enqueued_job
+
 describe SpamTriageListener do
   let(:listener) { described_class.instance }
   let(:account) { create(:account, spam_triage: true) }
@@ -48,6 +50,16 @@ describe SpamTriageListener do
       conversation.contact.update!(blocked: true)
 
       expect { listener.message_created(event) }.not_to have_enqueued_job(Conversations::SpamTriageJob)
+    end
+
+    it 'releases anything held when the first public message turns out not to need triage' do
+      auto_reply = create(:message, account: account, conversation: conversation, message_type: :incoming, content_type: :incoming_email,
+                                    content_attributes: { email: { auto_reply: true } })
+      event = Events::Base.new('message.created', Time.zone.now, message: auto_reply)
+
+      expect { listener.message_created(event) }
+        .to have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
+        .and not_have_enqueued_job(Conversations::SpamTriageJob)
     end
 
     it 'does not triage private messages' do
