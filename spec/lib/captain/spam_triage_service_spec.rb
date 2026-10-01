@@ -49,7 +49,7 @@ RSpec.describe Captain::SpamTriageService do
       it "rejects #{description}" do
         respond_with(raw)
 
-        # the raw reply stays alongside the error: the LLM call happened, so it still counts for usage metering
+        # the raw reply is kept alongside the error for debugging; with :error present the Enterprise wrapper doesn't meter it
         expect(service.perform).to eq(error: 'Invalid LLM response format', message: raw)
       end
     end
