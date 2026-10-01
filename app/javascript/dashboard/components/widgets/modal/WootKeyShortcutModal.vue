@@ -8,6 +8,12 @@ import {
   keysToModifyInQWERTZ,
 } from 'shared/helpers/KeyboardHelpers';
 import Hotkey from 'dashboard/components/base/Hotkey.vue';
+import { useUISettings } from 'dashboard/composables/useUISettings';
+import {
+  GMAIL_SHORTCUTS,
+  GMAIL_SHORTCUT_GROUPS,
+  GMAIL_SHORTCUTS_SETTING,
+} from 'dashboard/composables/useGmailShortcuts';
 
 defineProps({ show: Boolean });
 defineEmits(['close']);
@@ -30,6 +36,17 @@ const needsShiftKey = computed(
     keySet.some(key => keysToModifyInQWERTZ.has(key))
 );
 
+const { uiSettings } = useUISettings();
+const gmailShortcutsEnabled = computed(
+  () => !!uiSettings.value?.[GMAIL_SHORTCUTS_SETTING]
+);
+const gmailShortcutGroups = GMAIL_SHORTCUT_GROUPS.map(group => ({
+  group,
+  shortcuts: Object.entries(GMAIL_SHORTCUTS)
+    .filter(([, shortcut]) => shortcut.group === group)
+    .map(([id, shortcut]) => ({ id, ...shortcut })),
+}));
+
 onMounted(async () => {
   currentLayout.value = await useDetectKeyboardLayout();
 });
@@ -41,6 +58,53 @@ onMounted(async () => {
       <woot-modal-header
         :header-title="$t('SIDEBAR_ITEMS.KEYBOARD_SHORTCUTS')"
       />
+      <template v-if="gmailShortcutsEnabled">
+        <section
+          v-for="{ group, shortcuts } in gmailShortcutGroups"
+          :key="group"
+          class="px-8 pt-6"
+        >
+          <h4 class="mb-3 text-sm font-medium text-n-slate-11">
+            {{ $t(`KEYBOARD_SHORTCUTS.GMAIL.GROUPS.${group}`) }}
+          </h4>
+          <div class="grid grid-cols-2 gap-x-5 gap-y-3">
+            <div
+              v-for="shortcut in shortcuts"
+              :key="shortcut.id"
+              class="flex justify-between items-center min-w-[25rem]"
+            >
+              <h5 class="text-sm text-n-slate-12">
+                {{ $t(`KEYBOARD_SHORTCUTS.GMAIL.TITLE.${shortcut.id}`) }}
+              </h5>
+              <div class="flex items-center gap-2 mb-1 ms-2">
+                <template v-for="(key, index) in shortcut.display" :key="index">
+                  <span
+                    v-if="index > 0 && shortcut.joiner"
+                    class="text-xs text-n-slate-11"
+                  >
+                    {{
+                      $t(
+                        `KEYBOARD_SHORTCUTS.GMAIL.${shortcut.joiner.toUpperCase()}`
+                      )
+                    }}
+                  </span>
+                  <Hotkey
+                    custom-class="min-h-[28px] min-w-[36px] key normal-case"
+                  >
+                    {{ key }}
+                  </Hotkey>
+                </template>
+              </div>
+            </div>
+          </div>
+        </section>
+        <h4 class="px-8 pt-6 text-sm font-medium text-n-slate-11">
+          {{ $t('KEYBOARD_SHORTCUTS.GMAIL.GROUPS.OTHER') }}
+        </h4>
+      </template>
+      <p v-else class="px-8 pt-4 text-sm text-n-slate-11">
+        {{ $t('KEYBOARD_SHORTCUTS.GMAIL.ENABLE_HINT') }}
+      </p>
       <div class="grid grid-cols-2 px-8 pt-0 pb-4 mt-6 gap-x-5 gap-y-3">
         <div class="flex justify-between items-center min-w-[25rem]">
           <h5 class="text-sm text-n-slate-12">

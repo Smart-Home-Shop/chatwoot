@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
 import ConversationCard from './widgets/conversation/ConversationCard.vue';
+import { focusedConversationId } from 'dashboard/composables/useGmailShortcuts';
 import ConversationCardExpanded from 'dashboard/components-next/Conversation/ConversationCard/ConversationCardExpanded.vue';
 import ContextMenu from 'dashboard/components/ui/ContextMenu.vue';
 import ConversationContextMenu from './widgets/conversation/contextMenu/Index.vue';
@@ -65,6 +66,9 @@ const currentContact = computed(() =>
 );
 
 const isActiveChat = computed(() => currentChat.value.id === props.source.id);
+const isKeyboardFocused = computed(
+  () => !isActiveChat.value && focusedConversationId.value === props.source.id
+);
 
 const inbox = computed(() => {
   const inboxId = props.source.inbox_id;
@@ -188,6 +192,7 @@ const onDeleteConversation = () => {
     :inbox="inbox"
     :selected="isConversationSelected(source.id)"
     :is-active-chat="isActiveChat"
+    :class="{ 'ring-2 ring-inset ring-n-brand': isKeyboardFocused }"
     :show-assignee="showAssigneeForExpandedCard"
     :show-inbox-name="showInboxName"
     :is-inbox-view="isInboxView"
@@ -206,6 +211,7 @@ const onDeleteConversation = () => {
     :inbox="inbox"
     :selected="isConversationSelected(source.id)"
     :is-active-chat="isActiveChat"
+    :class="{ 'ring-2 ring-inset ring-n-brand': isKeyboardFocused }"
     :show-assignee="showAssignee"
     :show-inbox-name="showInboxName"
     @click="onCardClick"

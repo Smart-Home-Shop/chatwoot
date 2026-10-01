@@ -448,7 +448,7 @@ function isBodyEmpty(content) {
   return bodyWithoutSignature.trim().length === 0;
 }
 
-function handleEmptyBodyWithSignature() {
+function handleEmptyBodyWithSignature({ focus = true } = {}) {
   const { schema, tr, doc } = state;
 
   const isEmptyParagraph = node =>
@@ -456,7 +456,7 @@ function handleEmptyBodyWithSignature() {
 
   // Check if empty paragraph already exists to prevent duplicates when toggling signatures
   if (isEmptyParagraph(doc.firstChild)) {
-    focusEditorInputField('start');
+    if (focus) focusEditorInputField('start');
     return;
   }
 
@@ -467,7 +467,7 @@ function handleEmptyBodyWithSignature() {
   editorView.dispatch(paragraphTransaction);
 
   // Set the focus at the start of the input field
-  focusEditorInputField('start');
+  if (focus) focusEditorInputField('start');
 }
 
 function focusEditor(content) {
@@ -478,7 +478,7 @@ function focusEditor(content) {
     // reload state can be called when switching between conversations, or when drafts is loaded
     // these drafts can also have a signature, so we need to check if the body is empty
     // and handle things accordingly
-    handleEmptyBodyWithSignature();
+    handleEmptyBodyWithSignature({ focus: props.focusOnMount });
   } else if (props.focusOnMount) {
     // this is in the else block, handleEmptyBodyWithSignature also has a call to the focus method
     // the position is set to start, because the signature is added at the end of the body

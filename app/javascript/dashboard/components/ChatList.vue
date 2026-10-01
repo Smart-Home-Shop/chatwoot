@@ -32,6 +32,10 @@ import { useEmitter } from 'dashboard/composables/emitter';
 import { useConversationRequiredAttributes } from 'dashboard/composables/useConversationRequiredAttributes';
 
 import { emitter } from 'shared/helpers/mitt';
+import {
+  useGmailShortcuts,
+  focusedConversationId,
+} from 'dashboard/composables/useGmailShortcuts';
 
 import wootConstants from 'dashboard/constants/globals';
 import advancedFilterOptions from './widgets/conversation/advancedFilterItems';
@@ -873,6 +877,63 @@ provide('assignPriority', assignPriority);
 provide('isConversationSelected', isConversationSelected);
 provide('deleteConversation', handleDelete);
 
+// Gmail-style list keys. With a conversation open, j/k open the next/previous one (Gmail's reading pane);
+// on the list alone they move a highlight that o/Enter opens.
+const conversationListComponentRef = ref(null);
+const openConversationId = computed(
+  () => Number(route.params.conversation_id) || null
+);
+const keyboardTargetId = computed(
+  () => openConversationId.value || focusedConversationId.value
+);
+
+const moveInList = step => {
+  const list = conversationList.value;
+  if (!list.length) return;
+  const index = list.findIndex(item => item.id === keyboardTargetId.value);
+  const nextIndex = index === -1 ? 0 : index + step;
+  const target = list[Math.min(Math.max(nextIndex, 0), list.length - 1)];
+
+  if (openConversationId.value) {
+    router.push(buildConversationPath(target.id));
+    return;
+  }
+  focusedConversationId.value = target.id;
+  conversationListComponentRef.value?.scrollToConversation(target.id);
+};
+
+const toggleSelected = () => {
+  const target = conversationList.value.find(
+    item => item.id === keyboardTargetId.value
+  );
+  if (!target) return;
+  if (isConversationSelected(target.id)) {
+    deSelectConversation(target.id, target.inbox_id);
+  } else {
+    selectConversation(target.id, target.inbox_id);
+  }
+};
+
+useGmailShortcuts({
+  NEXT: () => moveInList(1),
+  PREVIOUS: () => moveInList(-1),
+  OPEN: () => {
+    if (!openConversationId.value && focusedConversationId.value) {
+      router.push(buildConversationPath(focusedConversationId.value));
+    }
+  },
+  BACK_TO_LIST: () => {
+    if (!openConversationId.value) return;
+    // Keep the cursor on the conversation just left, as Gmail does
+    focusedConversationId.value = openConversationId.value;
+    redirectToConversationList();
+  },
+  SELECT: toggleSelected,
+  MARK_UNREAD: () => {
+    if (keyboardTargetId.value) markAsUnread(keyboardTargetId.value);
+  },
+});
+
 watch(activeTeam, () => resetAndFetchData());
 
 watch(
@@ -974,6 +1035,7 @@ watch(appliedFilters, () => resetBulkActions());
       @select-all-conversations="toggleSelectAll"
     />
     <ConversationList
+      ref="conversationListComponentRef"
       :conversation-list="conversationList"
       :is-loading="chatListLoading"
       :show-end-of-list-message="showEndOfListMessage"

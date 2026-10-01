@@ -59,6 +59,10 @@
           "UPDATE_ERROR": "There is an error while updating the language settings, please try again",
           "USE_ACCOUNT_DEFAULT": "Use account default"
         },
+        "KEYBOARD_SHORTCUTS": {
+          "TITLE": "Keyboard shortcuts",
+          "NOTE": "Use Gmail-style single-key shortcuts such as j/k to move between conversations, e to resolve and ! to report spam. Press ? anywhere to see them all."
+        },
         "EXPAND_EMAILS": {
           "TITLE": "Expand emails by default",
           "NOTE": "Show emails at full length with quoted text visible, instead of collapsing them in the conversation."
@@ -834,6 +838,34 @@
   },
   "KEYBOARD_SHORTCUTS": {
     "TOGGLE_MODAL": "View all shortcuts",
+    "GMAIL": {
+      "ENABLE_HINT": "Turn on Keyboard shortcuts in Profile settings to use Gmail-style single-key shortcuts.",
+      "OR": "or",
+      "THEN": "then",
+      "GROUPS": {
+        "NAVIGATION": "Navigation",
+        "ACTIONS": "Conversation actions",
+        "OTHER": "Other shortcuts"
+      },
+      "TITLE": {
+        "NEXT": "Next conversation",
+        "PREVIOUS": "Previous conversation",
+        "OPEN": "Open highlighted conversation",
+        "BACK_TO_LIST": "Back to conversation list",
+        "SEARCH": "Search",
+        "GO_TO_CONVERSATIONS": "Go to conversations",
+        "GO_TO_CONTACTS": "Go to contacts",
+        "HELP": "Show keyboard shortcuts",
+        "SELECT": "Select conversation",
+        "RESOLVE": "Resolve or reopen",
+        "REPLY": "Reply",
+        "LABEL": "Labels",
+        "SNOOZE": "Snooze",
+        "MARK_UNREAD": "Mark as unread",
+        "SPAM": "Report spam",
+        "UNDO": "Undo report spam"
+      }
+    },
     "TITLE": {
       "OPEN_CONVERSATION": "Open conversation",
       "RESOLVE_AND_NEXT": "Resolve and move to next",

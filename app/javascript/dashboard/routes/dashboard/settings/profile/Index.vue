@@ -12,7 +12,8 @@ import UserProfilePicture from './UserProfilePicture.vue';
 import UserBasicDetails from './UserBasicDetails.vue';
 import MessageSignature from './MessageSignature.vue';
 import FontSize from './FontSize.vue';
-import ExpandEmailMessages from './ExpandEmailMessages.vue';
+import UISettingSwitch from './UISettingSwitch.vue';
+import { GMAIL_SHORTCUTS_SETTING } from 'dashboard/composables/useGmailShortcuts';
 import UserLanguageSelect from './UserLanguageSelect.vue';
 import ChangePassword from './ChangePassword.vue';
 import NotificationPreferences from './NotificationPreferences.vue';
@@ -34,7 +35,7 @@ export default {
     MessageSignature,
     SectionLayout,
     FontSize,
-    ExpandEmailMessages,
+    UISettingSwitch,
     UserLanguageSelect,
     UserProfilePicture,
     Policy,
@@ -59,6 +60,7 @@ export default {
       isEditorHotKeyEnabled,
       updateUISettings,
       replaceInstallationName,
+      gmailShortcutsSetting: GMAIL_SHORTCUTS_SETTING,
     };
   },
   data() {
@@ -273,12 +275,26 @@ export default {
             $t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.LANGUAGE.NOTE')
           "
         />
-        <ExpandEmailMessages
+        <UISettingSwitch
+          setting-key="expand_email_messages"
           :label="
             $t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.EXPAND_EMAILS.TITLE')
           "
           :description="
             $t('PROFILE_SETTINGS.FORM.INTERFACE_SECTION.EXPAND_EMAILS.NOTE')
+          "
+        />
+        <UISettingSwitch
+          :setting-key="gmailShortcutsSetting"
+          :label="
+            $t(
+              'PROFILE_SETTINGS.FORM.INTERFACE_SECTION.KEYBOARD_SHORTCUTS.TITLE'
+            )
+          "
+          :description="
+            $t(
+              'PROFILE_SETTINGS.FORM.INTERFACE_SECTION.KEYBOARD_SHORTCUTS.NOTE'
+            )
           "
         />
       </div>
