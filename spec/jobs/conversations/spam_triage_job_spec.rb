@@ -18,8 +18,13 @@ RSpec.describe Conversations::SpamTriageJob do
     allow(service).to receive(:perform)
     lock_key = format(Redis::RedisKeys::SPAM_TRIAGE_RUN_LOCK, conversation_id: conversation.id)
     Redis::Alfred.set(lock_key, 'other-run', nx: true, ex: 60)
+    allow(Redis::Alfred).to receive(:ttl).and_call_original
+    allow(Redis::Alfred).to receive(:ttl).with(lock_key).and_return(45)
+    freeze_time
 
-    expect { described_class.perform_now(message) }.to have_enqueued_job(described_class).with(message)
+    # just after the holder's lease runs out, never immediately (that would hot-loop while the lock is held)
+    expect { described_class.perform_now(message) }
+      .to have_enqueued_job(described_class).with(message).at(46.seconds.from_now)
     expect(service).not_to have_received(:perform)
     expect(Redis::Alfred.get(lock_key)).to eq('other-run')
   ensure
