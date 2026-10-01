@@ -41,8 +41,15 @@ export function useSidebarKeyboardShortcuts(toggleShortcutModalFn) {
       SEARCH: () => navigateToRoute('search'),
       GO_TO_CONVERSATIONS: () => navigateToRoute('home'),
       GO_TO_CONTACTS: () => navigateToRoute('contacts_dashboard_index'),
-      // ? toggles the overlay, so it may fire while that overlay is the open modal
-      HELP: () => toggleShortcutModalFn(!document.querySelector('.modal-mask')),
+      // ? may fire over a legacy modal only to close the shortcut overlay; never over native dialogs or the palette
+      HELP: () => {
+        if (
+          document.querySelector('ninja-keys')?.visible ||
+          document.querySelector('dialog[open]')
+        )
+          return false;
+        return toggleShortcutModalFn(!document.querySelector('.modal-mask'));
+      },
     },
     { allowOverOverlay: ['HELP'] }
   );

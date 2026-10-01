@@ -59,9 +59,10 @@ const hasCommandModifier = e => e.ctrlKey || e.metaKey || e.altKey;
 // would also fire on Shift+U (mark unread); letters only match without Shift unless the binding asks for it
 const isShiftedLetter = (key, e) => /^[a-z]$/.test(key) && e.shiftKey;
 
-// Enter must keep activating focused buttons, links and other controls
+// Enter must keep activating focused buttons, links and other controls; the keyboard-cursor row itself is not one
 const isEnterOnInteractiveElement = e =>
   e.key === 'Enter' &&
+  e.target?.getAttribute?.('aria-current') !== 'true' &&
   !!e.target?.closest?.(
     'a, button, select, summary, [role="button"], [role="switch"], [role="menuitem"], [role="option"]'
   );

@@ -883,8 +883,14 @@ const conversationListComponentRef = ref(null);
 const openConversationId = computed(
   () => Number(route.params.conversation_id) || null
 );
+// The highlight outlives tab/filter changes, so only trust it while that conversation is still in this list
+const focusedIdInList = computed(() =>
+  conversationList.value.some(item => item.id === focusedConversationId.value)
+    ? focusedConversationId.value
+    : null
+);
 const keyboardTargetId = computed(
-  () => openConversationId.value || focusedConversationId.value
+  () => openConversationId.value || focusedIdInList.value
 );
 
 const PREFETCH_ROWS = 3;
@@ -925,8 +931,8 @@ useGmailShortcuts({
   NEXT: () => moveInList(1),
   PREVIOUS: () => moveInList(-1),
   OPEN: () => {
-    if (openConversationId.value || !focusedConversationId.value) return false;
-    router.push(buildConversationPath(focusedConversationId.value));
+    if (openConversationId.value || !focusedIdInList.value) return false;
+    router.push(buildConversationPath(focusedIdInList.value));
     return true;
   },
   BACK_TO_LIST: () => {
