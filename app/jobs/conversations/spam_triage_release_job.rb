@@ -5,13 +5,12 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
 
   def perform(conversation)
     gate = Conversations::SpamTriageGate.new(conversation: conversation)
-    return gate.discard_held if gate.suspected_spam?
     # Still deciding: the triage job enqueues the release once it has a verdict
-    return if gate.awaiting_verdict?
+    return if !gate.suspected_spam? && gate.awaiting_verdict?
 
-    drained = gate.drain_held { |entry| replay(conversation, entry) }
+    done = gate.suspected_spam? ? gate.discard_held : gate.drain_held { |entry| replay(conversation, entry) }
     # Another release or a recording holds the lock; come back once it's done
-    self.class.set(wait: 5.seconds).perform_later(conversation) unless drained
+    self.class.set(wait: 5.seconds).perform_later(conversation) unless done
   end
 
   private

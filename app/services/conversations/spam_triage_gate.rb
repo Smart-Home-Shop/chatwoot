@@ -70,8 +70,12 @@ class Conversations::SpamTriageGate
     Redis::Alfred.lrem(held_key, raw, 1)
   end
 
+  # Under the shared lock so an entry being recorded right now can't survive the discard; false if the lock is busy
   def discard_held
-    Redis::Alfred.delete(held_key)
+    with_lock do
+      Redis::Alfred.delete(held_key)
+      true
+    end
   end
 
   private

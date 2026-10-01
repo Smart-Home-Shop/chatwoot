@@ -74,6 +74,17 @@ RSpec.describe Conversations::SpamTriageReleaseJob do
     end
   end
 
+  it 'retries the discard later while the lock is busy' do
+    conversation.update!(additional_attributes: { 'spam_triage' => { 'verdict' => 'spam' } }, label_list: ['suspected-spam'])
+    lock_key = format(Redis::RedisKeys::SPAM_TRIAGE_HELD_LOCK, conversation_id: conversation.id)
+    Redis::LockManager.new.lock(lock_key, 30)
+
+    expect { described_class.perform_now(conversation) }.to have_enqueued_job(described_class).with(conversation)
+    expect(gate.held_entries.size).to eq(2)
+  ensure
+    Redis::LockManager.new.unlock(lock_key)
+  end
+
   it 'discards everything held when the conversation is flagged as suspected spam' do
     conversation.update!(additional_attributes: { 'spam_triage' => { 'verdict' => 'spam' } }, label_list: ['suspected-spam'])
 

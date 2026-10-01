@@ -184,6 +184,20 @@ describe NotificationListener do
   describe 'conversation_bot_handoff' do
     let(:event_name) { :'conversation.bot_handoff' }
 
+    it 'holds the creation alerts while spam triage decides on the conversation' do
+      notification_setting = first_agent.notification_settings.first
+      notification_setting.selected_email_flags = [:email_conversation_creation]
+      notification_setting.save!
+      create(:inbox_member, user: first_agent, inbox: inbox)
+      gate = instance_double(Conversations::SpamTriageGate, hold: true)
+      allow(Conversations::SpamTriageGate).to receive(:new).and_return(gate)
+
+      listener.conversation_bot_handoff(Events::Base.new(event_name, Time.zone.now, conversation: conversation.reload))
+
+      expect(gate).to have_received(:hold).with(type: 'conversation_creation', user_id: first_agent.id)
+      expect(first_agent.notifications.count).to eq(0)
+    end
+
     context 'when conversation is bot handoff' do
       it 'creates notifications for inbox members who have notifications turned on' do
         notification_setting = first_agent.notification_settings.first
