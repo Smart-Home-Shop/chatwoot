@@ -880,8 +880,10 @@ provide('deleteConversation', handleDelete);
 // Gmail-style list keys. With a conversation open, j/k open the next/previous one (Gmail's reading pane);
 // on the list alone they move a highlight that o/Enter opens.
 const conversationListComponentRef = ref(null);
+// Most conversation routes use :conversation_id; team, mentions, unattended and participating use :conversationId
 const openConversationId = computed(
-  () => Number(route.params.conversation_id) || null
+  () =>
+    Number(route.params.conversation_id || route.params.conversationId) || null
 );
 // The highlight outlives tab/filter changes, so only trust it while that conversation is still in this list
 const focusedIdInList = computed(() =>
