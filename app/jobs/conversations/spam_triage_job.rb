@@ -24,21 +24,12 @@ class Conversations::SpamTriageJob < ApplicationJob
       true
     end
 
-    # Only the job that recorded the verdict releases what was held, so concurrent runs can't send twice
-    release_hold(message) if decided
+    # Release (or, for suspected spam, discard) what was held while deciding, in its own retryable job
+    Conversations::SpamTriageReleaseJob.perform_later(conversation) if decided
     raise "Spam triage failed for conversation #{conversation.id}: #{result[:reason]}" if result[:verdict] == 'error'
   end
 
   private
-
-  # Sends the auto-replies and agent alerts held by Conversations::SpamTriageGate, unless the conversation is now flagged
-  def release_hold(message)
-    conversation = message.conversation.reload
-    return if Conversations::SpamTriageGate.new(conversation: conversation).hold?
-
-    ::MessageTemplates::HookExecutionService.new(message: message).perform
-    NotificationListener.instance.release_spam_triage_hold(conversation)
-  end
 
   def triaged?(conversation)
     conversation.additional_attributes&.key?('spam_triage')

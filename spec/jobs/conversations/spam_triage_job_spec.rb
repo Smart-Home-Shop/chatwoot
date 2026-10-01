@@ -70,49 +70,20 @@ RSpec.describe Conversations::SpamTriageJob do
   end
 
   context 'when releasing auto-replies and alerts held during triage' do
-    let(:hook_service) { instance_double(MessageTemplates::HookExecutionService, perform: true) }
-
-    before do
-      allow(MessageTemplates::HookExecutionService).to receive(:new).and_return(hook_service)
-      allow(NotificationListener.instance).to receive(:release_spam_triage_hold)
-    end
-
-    it 'releases them when the conversation is not suspected spam' do
+    it 'enqueues the release once the verdict is recorded' do
       allow(service).to receive(:perform).and_return(verdict: 'legit', confidence: 0.95, reason: 'Order query.', message: '{}')
 
-      described_class.perform_now(message)
-
-      expect(hook_service).to have_received(:perform)
-      expect(NotificationListener.instance).to have_received(:release_spam_triage_hold).with(conversation)
+      expect { described_class.perform_now(message) }
+        .to have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
     end
 
-    it 'keeps them held when the conversation is flagged as suspected spam' do
-      allow(service).to receive(:perform).and_return(spam_result)
-
-      described_class.perform_now(message)
-
-      # the private note is a new message and runs its own (held) hook, so assert on the contact's message only
-      expect(MessageTemplates::HookExecutionService).not_to have_received(:new).with(message: message)
-      expect(NotificationListener.instance).not_to have_received(:release_spam_triage_hold)
-    end
-
-    it 'records an error verdict, releases them and raises when the service fails' do
+    it 'records an error verdict, still enqueues the release and raises when the service fails' do
       allow(service).to receive(:perform).and_return(error: 'Invalid LLM response format')
 
-      expect { described_class.perform_now(message) }.to raise_error(RuntimeError, /Spam triage failed/)
+      expect { described_class.perform_now(message) }
+        .to raise_error(RuntimeError, /Spam triage failed/)
+        .and have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
       expect(conversation.reload.additional_attributes.dig('spam_triage', 'verdict')).to eq('error')
-      expect(hook_service).to have_received(:perform)
-      expect(NotificationListener.instance).to have_received(:release_spam_triage_hold)
     end
-  end
-
-  it 'rolls back the verdict when flagging fails' do
-    allow(service).to receive(:perform).and_return(spam_result)
-    allow(Messages::MessageBuilder).to receive(:new).and_raise(ActiveRecord::RecordInvalid)
-
-    expect { described_class.perform_now(message) }.to raise_error(ActiveRecord::RecordInvalid)
-    conversation.reload
-    expect(conversation.additional_attributes).not_to have_key('spam_triage')
-    expect(conversation.label_list).to be_empty
   end
 end

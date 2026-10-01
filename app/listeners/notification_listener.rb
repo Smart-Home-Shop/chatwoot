@@ -16,17 +16,9 @@ class NotificationListener < BaseListener
   def conversation_created(event)
     conversation = extract_conversation_and_account(event)[0]
     return if conversation.pending?
-    return if spam_triage_hold?(conversation)
+    return if spam_triage_hold(conversation, type: 'conversation_creation')
 
     notify_conversation_creation(conversation)
-  end
-
-  # Sends the alerts held back while spam triage decided on a new conversation
-  def release_spam_triage_hold(conversation)
-    return if conversation.pending?
-
-    notify_conversation_creation(conversation)
-    notify_assignee(conversation) if conversation.assignee.present?
   end
 
   def assignee_changed(event)
@@ -40,7 +32,7 @@ class NotificationListener < BaseListener
     return if assignee.blank?
     return if event.data[:notifiable_assignee_change].blank?
     return if conversation.pending?
-    return if spam_triage_hold?(conversation)
+    return if spam_triage_hold(conversation, type: 'assignment', user_id: assignee.id)
 
     notify_assignee(conversation)
   end
@@ -49,15 +41,10 @@ class NotificationListener < BaseListener
     message = extract_message_and_account(event)[0]
 
     Messages::MentionService.new(message: message).perform
-    Messages::NewMessageNotificationService.new(message: message).perform unless spam_triage_hold?(message.conversation)
+    notify_new_message(message)
   end
 
-  private
-
-  def spam_triage_hold?(conversation)
-    Conversations::SpamTriageGate.new(conversation: conversation).hold?
-  end
-
+  # Public so Conversations::SpamTriageReleaseJob can replay alerts held during spam triage
   def notify_conversation_creation(conversation)
     conversation.inbox.members.each do |agent|
       NotificationBuilder.new(
@@ -76,5 +63,18 @@ class NotificationListener < BaseListener
       account: conversation.account,
       primary_actor: conversation
     ).perform
+  end
+
+  private
+
+  # Only notifiable messages are worth holding; the service itself skips the rest
+  def notify_new_message(message)
+    return if message.notifiable? && spam_triage_hold(message.conversation, type: 'new_message', message_id: message.id)
+
+    Messages::NewMessageNotificationService.new(message: message).perform
+  end
+
+  def spam_triage_hold(conversation, entry)
+    Conversations::SpamTriageGate.new(conversation: conversation).hold(entry)
   end
 end
