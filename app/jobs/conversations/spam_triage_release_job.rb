@@ -3,6 +3,9 @@
 class Conversations::SpamTriageReleaseJob < ApplicationJob
   queue_as :low
 
+  # Long enough for a post plus attachment upload
+  SLACK_LOCK_TIMEOUT = 30.seconds
+
   def perform(conversation)
     gate = Conversations::SpamTriageGate.new(conversation: conversation)
     # Still deciding: the triage job enqueues the release once it has a verdict
@@ -43,13 +46,30 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
     end
   end
 
-  # Inline and in order, so the conversation header is posted with the first held message and the thread keeps its order.
-  # Already-posted messages are skipped by the Slack service (external_source_id_slack), so a retry can't post twice.
+  # Inline and in order, under the same mutex as SendOnSlackJob, so the header is posted with the first held message and
+  # the thread keeps its order. A busy mutex raises: the entry stays held and this job retries, rather than letting a
+  # deferred retry post out of order. Already-posted messages are skipped (external_source_id_slack), so retries can't repeat.
   def replay_slack(conversation, entry)
     hook = conversation.account.hooks.find_by(id: entry['hook_id'])
     return if hook.blank? || hook.disabled?
 
-    replay_for_message(conversation, entry) { |message| ::SendOnSlackJob.perform_now(message, hook) }
+    replay_for_message(conversation, entry) do |message|
+      with_slack_lock(conversation, hook) { Integrations::Slack::SendOnSlackService.new(message: message, hook: hook).perform }
+    end
+  end
+
+  def with_slack_lock(conversation, hook)
+    key = format(::Redis::Alfred::SLACK_MESSAGE_MUTEX, conversation_id: conversation.id, reference_id: hook.reference_id)
+    lock_manager = Redis::LockManager.new
+    unless lock_manager.lock(key, SLACK_LOCK_TIMEOUT)
+      raise MutexApplicationJob::LockAcquisitionError, "Slack is busy for conversation #{conversation.id}"
+    end
+
+    begin
+      yield
+    ensure
+      lock_manager.unlock(key)
+    end
   end
 
   def replay_for_message(conversation, entry)

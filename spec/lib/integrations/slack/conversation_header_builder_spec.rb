@@ -55,6 +55,16 @@ describe Integrations::Slack::ConversationHeaderBuilder do
     expect(text).to include('Unassigned', ':bell: Automated notification')
   end
 
+  it 'keeps the header within Slack limits however long the subject or summary is' do
+    conversation.messages.first.update!(content_attributes: { email: { subject: 'Re: ' * 400 } })
+    conversation.update!(additional_attributes: { 'spam_triage' => { 'summary' => 'word ' * 1000 } })
+
+    headline = described_class.new(conversation: conversation.reload).payload[:blocks].first.dig(:text, :text)
+    expect(headline.length).to be < described_class::SECTION_TEXT_LIMIT
+    expect(headline.lines[1].length).to be <= described_class::SUBJECT_LENGTH + 3
+    expect(headline.lines[2].length).to be <= described_class::AI_SUMMARY_LENGTH
+  end
+
   it 'has a plain fallback text for Slack notifications' do
     expect(payload[:text]).to eq('Where is my order? — Sarah Jones &lt;sarah@example.com&gt; — Support &amp; Sales')
   end

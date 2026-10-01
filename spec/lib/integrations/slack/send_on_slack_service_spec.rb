@@ -100,6 +100,23 @@ describe Integrations::Slack::SendOnSlackService do
       end
     end
 
+    context 'when an attachment-only message goes to a deleted thread' do
+      let(:message) { create(:message, :with_attachment, content: nil, account: account, inbox: conversation.inbox, conversation: conversation) }
+
+      it 'posts a new header and retries the upload in its thread' do
+        conversation.update!(identifier: 'gone.ts', additional_attributes: { 'slack_channel' => hook.reference_id })
+
+        expect(slack_client).to receive(:files_upload_v2).with(hash_including(thread_ts: 'gone.ts'))
+                                                         .ordered.and_raise(Slack::Web::Api::Errors::ThreadNotFound.new('thread_not_found'))
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(blocks: kind_of(Array))).ordered.and_return({ 'ts' => 'new.ts' })
+        expect(slack_client).to receive(:files_upload_v2).with(hash_including(thread_ts: 'new.ts')).ordered.and_return(true)
+
+        builder.perform
+
+        expect(conversation.reload.identifier).to eq('new.ts')
+      end
+    end
+
     context 'with identifier' do
       before do
         conversation.update!(identifier: 'random_slack_thread_ts')

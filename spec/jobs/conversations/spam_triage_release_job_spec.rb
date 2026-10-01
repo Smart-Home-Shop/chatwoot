@@ -56,11 +56,28 @@ RSpec.describe Conversations::SpamTriageReleaseJob do
       conversation.update!(additional_attributes: {})
       gate.hold(type: 'slack', message_id: message.id, hook_id: slack_hook.id)
       conversation.update!(additional_attributes: verdict)
-      allow(SendOnSlackJob).to receive(:perform_now)
+      slack_service = instance_double(Integrations::Slack::SendOnSlackService, perform: true)
+      allow(Integrations::Slack::SendOnSlackService).to receive(:new).with(message: message, hook: slack_hook).and_return(slack_service)
 
       described_class.perform_now(conversation)
 
-      expect(SendOnSlackJob).to have_received(:perform_now).with(message, slack_hook)
+      expect(slack_service).to have_received(:perform)
+      expect(gate.held_entries.map(&:last)).not_to include(hash_including('type' => 'slack'))
+    end
+
+    it 'keeps a held Slack post and retries when the Slack mutex is busy, so posts stay in order' do
+      slack_hook = create(:integrations_hook, app_id: 'slack', account: account)
+      verdict = conversation.additional_attributes
+      conversation.update!(additional_attributes: {})
+      gate.hold(type: 'slack', message_id: message.id, hook_id: slack_hook.id)
+      conversation.update!(additional_attributes: verdict)
+      mutex = format(Redis::Alfred::SLACK_MESSAGE_MUTEX, conversation_id: conversation.id, reference_id: slack_hook.reference_id)
+      Redis::LockManager.new.lock(mutex, 30)
+
+      expect { described_class.perform_now(conversation) }.to raise_error(MutexApplicationJob::LockAcquisitionError)
+      expect(gate.held_entries.map(&:last)).to include(hash_including('type' => 'slack'))
+    ensure
+      Redis::LockManager.new.unlock(mutex)
     end
 
     it 'skips a held assignment alert when the conversation has since been reassigned' do

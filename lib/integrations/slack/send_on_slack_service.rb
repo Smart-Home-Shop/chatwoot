@@ -2,6 +2,8 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   include RegexHelper
   pattr_initialize [:message!, :hook!]
 
+  MISSING_THREAD_ERRORS = [Slack::Web::Api::Errors::ThreadNotFound, Slack::Web::Api::Errors::InvalidThreadTs].freeze
+
   def perform
     # overriding the base class logic since the validations are different in this case.
     # FIXME: for now we will only send messages from widget to slack
@@ -116,7 +118,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   # The header (and so the thread) was deleted in Slack: start a new header and post into its thread
   def post_message
     post_thread_message
-  rescue Slack::Web::Api::Errors::ThreadNotFound
+  rescue *MISSING_THREAD_ERRORS
     post_conversation_header
     post_thread_message
   end
@@ -132,7 +134,15 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     )
   end
 
+  # Like text posts, an attachment whose thread was deleted starts a new header and retries under it
   def upload_files
+    upload_attachments
+  rescue *MISSING_THREAD_ERRORS
+    post_conversation_header
+    upload_attachments
+  end
+
+  def upload_attachments
     files = build_files_array
     return if files.empty?
 
@@ -144,6 +154,8 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
         channel_id: hook.reference_id
       )
       Rails.logger.info "slack_upload_result: #{result}"
+    rescue *MISSING_THREAD_ERRORS
+      raise
     rescue Slack::Web::Api::Errors::SlackError => e
       Rails.logger.error "Failed to upload files: #{e.message}"
     ensure

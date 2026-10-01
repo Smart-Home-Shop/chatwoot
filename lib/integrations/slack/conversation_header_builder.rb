@@ -20,6 +20,10 @@ class Integrations::Slack::ConversationHeaderBuilder
   DEFAULT_CHANNEL_EMOJI = ':speech_balloon:'.freeze
   # A fallback summary (no AI summary available) is the first message, cut to one tidy line
   FALLBACK_SUMMARY_LENGTH = 150
+  # Keep the header compact whatever the subject or model returns; Slack rejects section text over 3,000 characters
+  SUBJECT_LENGTH = 200
+  AI_SUMMARY_LENGTH = 250
+  SECTION_TEXT_LIMIT = 3000
   NOTIFICATION_LABEL = Conversations::SpamTriageJob::LABELS['notification'][:title]
 
   pattr_initialize [:conversation!]
@@ -43,7 +47,7 @@ class Integrations::Slack::ConversationHeaderBuilder
     lines = ["#{CHANNEL_EMOJI.fetch(inbox.channel_type, DEFAULT_CHANNEL_EMOJI)} *#{escape(inbox.name)}*  ·  ##{conversation.display_id}"]
     lines << "*#{escape(subject)}*" if subject.present?
     lines << escape(summary) if summary.present?
-    lines.join("\n")
+    lines.join("\n").truncate(SECTION_TEXT_LIMIT)
   end
 
   def meta_line
@@ -79,12 +83,16 @@ class Integrations::Slack::ConversationHeaderBuilder
   def subject
     return @subject if defined?(@subject)
 
-    @subject = first_incoming_message&.content_attributes&.dig('email', 'subject').presence ||
-               conversation.additional_attributes&.dig('mail_subject').presence
+    @subject = raw_subject&.squish&.truncate(SUBJECT_LENGTH)
+  end
+
+  def raw_subject
+    first_incoming_message&.content_attributes&.dig('email', 'subject').presence ||
+      conversation.additional_attributes&.dig('mail_subject').presence
   end
 
   def summary
-    @summary ||= conversation.additional_attributes&.dig('spam_triage', 'summary').presence ||
+    @summary ||= conversation.additional_attributes&.dig('spam_triage', 'summary')&.squish&.truncate(AI_SUMMARY_LENGTH).presence ||
                  first_incoming_message&.content.to_s.squish.truncate(FALLBACK_SUMMARY_LENGTH).presence
   end
 
