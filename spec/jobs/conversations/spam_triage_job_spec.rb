@@ -14,6 +14,19 @@ RSpec.describe Conversations::SpamTriageJob do
     expect { described_class.perform_later(message) }.to have_enqueued_job(described_class).on_queue('low')
   end
 
+  it 'skips the LLM call while another job is already triaging the conversation' do
+    allow(service).to receive(:perform)
+    lock_key = format(Redis::RedisKeys::SPAM_TRIAGE_RUN_LOCK, conversation_id: conversation.id)
+    Redis::Alfred.set(lock_key, 'other-run', nx: true, ex: 60)
+
+    described_class.perform_now(message)
+
+    expect(service).not_to have_received(:perform)
+    expect(Redis::Alfred.get(lock_key)).to eq('other-run')
+  ensure
+    Redis::Alfred.delete(lock_key)
+  end
+
   context 'when the verdict is spam at or above the threshold' do
     before { allow(service).to receive(:perform).and_return(spam_result) }
 
