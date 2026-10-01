@@ -59,6 +59,9 @@ onMounted(async () => {
         :header-title="$t('SIDEBAR_ITEMS.KEYBOARD_SHORTCUTS')"
       />
       <template v-if="gmailShortcutsEnabled">
+        <p class="px-8 pt-4 text-sm text-n-slate-11">
+          {{ $t('KEYBOARD_SHORTCUTS.GMAIL.RESTRICTIONS') }}
+        </p>
         <section
           v-for="{ group, shortcuts } in gmailShortcutGroups"
           :key="group"

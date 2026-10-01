@@ -61,7 +61,7 @@
         },
         "KEYBOARD_SHORTCUTS": {
           "TITLE": "Keyboard shortcuts",
-          "NOTE": "Use Gmail-style single-key shortcuts such as j/k to move between conversations, e to resolve and ! to report spam. Press ? anywhere to see them all."
+          "NOTE": "Use Gmail-style single-key shortcuts such as j/k to move between conversations, e to resolve and ! to report spam. They don't work while you're typing or when a dialog is open; press ? outside the reply box to see them all."
         },
         "EXPAND_EMAILS": {
           "TITLE": "Expand emails by default",
@@ -840,6 +840,7 @@
     "TOGGLE_MODAL": "View all shortcuts",
     "GMAIL": {
       "ENABLE_HINT": "Turn on Keyboard shortcuts in Profile settings to use Gmail-style single-key shortcuts.",
+      "RESTRICTIONS": "Single-key shortcuts don't work while you're typing (press Esc to leave the reply box) or when a dialog is open.",
       "OR": "or",
       "THEN": "then",
       "GROUPS": {

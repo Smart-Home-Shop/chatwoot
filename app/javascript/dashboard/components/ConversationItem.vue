@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, inject } from 'vue';
+import { computed, ref, watch, inject, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
@@ -69,6 +69,13 @@ const isActiveChat = computed(() => currentChat.value.id === props.source.id);
 const isKeyboardFocused = computed(
   () => !isActiveChat.value && focusedConversationId.value === props.source.id
 );
+
+// Move real focus to the highlighted row so assistive tech announces which conversation o/x will act on
+const cardRef = ref(null);
+watch(isKeyboardFocused, focused => {
+  if (focused)
+    nextTick(() => cardRef.value?.$el?.focus({ preventScroll: true }));
+});
 
 const inbox = computed(() => {
   const inboxId = props.source.inbox_id;
@@ -186,6 +193,7 @@ const onDeleteConversation = () => {
   <!-- Expanded layout: wide screen + expanded setting -->
   <ConversationCardExpanded
     v-if="showExpanded"
+    ref="cardRef"
     :chat="source"
     :current-contact="currentContact"
     :assignee="assignee"
@@ -193,6 +201,8 @@ const onDeleteConversation = () => {
     :selected="isConversationSelected(source.id)"
     :is-active-chat="isActiveChat"
     :class="{ 'ring-2 ring-inset ring-n-brand': isKeyboardFocused }"
+    :tabindex="isKeyboardFocused ? -1 : undefined"
+    :aria-current="isKeyboardFocused ? 'true' : undefined"
     :show-assignee="showAssigneeForExpandedCard"
     :show-inbox-name="showInboxName"
     :is-inbox-view="isInboxView"
@@ -205,6 +215,7 @@ const onDeleteConversation = () => {
   <!-- Default (condensed) layout -->
   <ConversationCard
     v-else
+    ref="cardRef"
     :chat="source"
     :current-contact="currentContact"
     :assignee="assignee"
@@ -212,6 +223,8 @@ const onDeleteConversation = () => {
     :selected="isConversationSelected(source.id)"
     :is-active-chat="isActiveChat"
     :class="{ 'ring-2 ring-inset ring-n-brand': isKeyboardFocused }"
+    :tabindex="isKeyboardFocused ? -1 : undefined"
+    :aria-current="isKeyboardFocused ? 'true' : undefined"
     :show-assignee="showAssignee"
     :show-inbox-name="showInboxName"
     @click="onCardClick"

@@ -887,7 +887,9 @@ const keyboardTargetId = computed(
   () => openConversationId.value || focusedConversationId.value
 );
 
-const moveInList = step => {
+const PREFETCH_ROWS = 3;
+
+const moveInList = async step => {
   const list = conversationList.value;
   if (!list.length) return;
   const index = list.findIndex(item => item.id === keyboardTargetId.value);
@@ -895,11 +897,16 @@ const moveInList = step => {
   const target = list[Math.min(Math.max(nextIndex, 0), list.length - 1)];
 
   if (openConversationId.value) {
-    router.push(buildConversationPath(target.id));
-    return;
+    await router.push(buildConversationPath(target.id));
+  } else {
+    focusedConversationId.value = target.id;
+    conversationListComponentRef.value?.scrollToConversation(target.id);
   }
-  focusedConversationId.value = target.id;
-  conversationListComponentRef.value?.scrollToConversation(target.id);
+
+  // Nearing the last loaded row prefetches the next page so j can continue past it without a stall. This runs after
+  // the navigation settles: a list request aborted by the route change would otherwise leave the list stuck "loading".
+  if (list.indexOf(target) >= list.length - PREFETCH_ROWS)
+    loadMoreConversations();
 };
 
 const toggleSelected = () => {

@@ -6,6 +6,7 @@ export const GMAIL_SHORTCUTS_SETTING = 'keyboard_shortcuts_enabled';
 
 // Single source for the bindings and the help overlay. Keys mirror Gmail where Chatwoot has an equivalent.
 // `keys` use tinykeys syntax: letters match event.key, space-separated keys are sequences ("g i").
+// Symbols are bound as characters (not Shift+…) so they work on layouts where they're unshifted, e.g. AZERTY's !.
 // `joiner` tells the overlay how to read `display`: 'or' = alternatives, 'then' = a sequence, unset = pressed together.
 export const GMAIL_SHORTCUTS = {
   NEXT: { keys: ['j'], display: ['J'], group: 'NAVIGATION' },
@@ -30,14 +31,14 @@ export const GMAIL_SHORTCUTS = {
     joiner: 'then',
     group: 'NAVIGATION',
   },
-  HELP: { keys: ['Shift+?'], display: ['?'], group: 'NAVIGATION' },
+  HELP: { keys: ['?'], display: ['?'], group: 'NAVIGATION' },
   SELECT: { keys: ['x'], display: ['X'], group: 'ACTIONS' },
   RESOLVE: { keys: ['e'], display: ['E'], group: 'ACTIONS' },
   REPLY: { keys: ['r'], display: ['R'], group: 'ACTIONS' },
   LABEL: { keys: [], display: ['L'], group: 'ACTIONS' }, // bound by LabelBox for everyone
   SNOOZE: { keys: ['b'], display: ['B'], group: 'ACTIONS' },
   MARK_UNREAD: { keys: ['Shift+U'], display: ['Shift', 'U'], group: 'ACTIONS' },
-  SPAM: { keys: ['Shift+!'], display: ['!'], group: 'ACTIONS' },
+  SPAM: { keys: ['!'], display: ['!'], group: 'ACTIONS' },
   UNDO: { keys: ['z'], display: ['Z'], group: 'ACTIONS' },
 };
 
@@ -53,6 +54,10 @@ const isOverlayOpen = () =>
 
 // Ctrl/Cmd/Alt combinations belong to the browser and the existing Alt shortcuts
 const hasCommandModifier = e => e.ctrlKey || e.metaKey || e.altKey;
+
+// tinykeys compares letters case-insensitively and allows extra modifiers, so a plain-letter binding like 'u'
+// would also fire on Shift+U (mark unread); letters only match without Shift unless the binding asks for it
+const isShiftedLetter = (key, e) => /^[a-z]$/.test(key) && e.shiftKey;
 
 // Enter must keep activating focused buttons, links and other controls
 const isEnterOnInteractiveElement = e =>
@@ -76,7 +81,8 @@ export function useGmailShortcuts(actions, { allowOverOverlay = [] } = {}) {
     GMAIL_SHORTCUTS[id].keys.forEach(key => {
       events[key] = e => {
         if (!uiSettings.value?.[GMAIL_SHORTCUTS_SETTING]) return;
-        if (hasCommandModifier(e) || isEnterOnInteractiveElement(e)) return;
+        if (hasCommandModifier(e) || isShiftedLetter(key, e)) return;
+        if (isEnterOnInteractiveElement(e)) return;
         if (!allowOverOverlay.includes(id) && isOverlayOpen()) return;
         if (action(e) !== false) e.preventDefault();
       };
