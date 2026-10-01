@@ -43,6 +43,17 @@ RSpec.describe 'Conversation Spam API', type: :request do
         expect(conversation.contact.reload).to be_blocked
       end
 
+      it 'rolls back the label and returns an error when the contact cannot be blocked' do
+        invalid_contact = ActiveRecord::RecordInvalid.new(conversation.contact)
+        allow_any_instance_of(Contact).to receive(:update!).and_raise(invalid_contact) # rubocop:disable RSpec/AnyInstance
+
+        post url, headers: agent.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(conversation.reload.label_list).to eq(['suspected-spam'])
+        expect(conversation).to be_open
+      end
+
       it 'reuses an existing spam label' do
         create(:label, account: account, title: 'spam', color: '#123456')
 
