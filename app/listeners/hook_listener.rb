@@ -26,6 +26,17 @@ class HookListener < BaseListener
     execute_account_hooks(event, conversation.account, conversation: conversation)
   end
 
+  # Keep the Slack conversation header's status and assignee current
+  def conversation_status_changed(event)
+    conversation = extract_conversation_and_account(event)[0]
+    execute_account_hooks(event, conversation.account, conversation: conversation)
+  end
+
+  def assignee_changed(event)
+    conversation = extract_conversation_and_account(event)[0]
+    execute_account_hooks(event, conversation.account, conversation: conversation)
+  end
+
   def conversation_resolved(event)
     conversation = extract_conversation_and_account(event)[0]
     # Only trigger for status changes is resolved
@@ -59,7 +70,7 @@ class HookListener < BaseListener
     return false if hook.disabled?
 
     supported_events_map = {
-      'slack' => ['message.created', 'message.updated'],
+      'slack' => ['message.created', 'message.updated', 'conversation.status_changed', 'assignee.changed'],
       'dialogflow' => ['message.created', 'message.updated'],
       'google_translate' => ['message.created'],
       'leadsquared' => ['contact.updated', 'conversation.created', 'conversation.resolved'],

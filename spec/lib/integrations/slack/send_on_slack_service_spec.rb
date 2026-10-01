@@ -19,9 +19,6 @@ describe Integrations::Slack::SendOnSlackService do
   let(:slack_client) { double }
   let(:builder) { described_class.new(message: message, hook: hook) }
   let(:link_builder) { described_class.new(message: nil, hook: hook) }
-  let(:conversation_link) do
-    "<#{ENV.fetch('FRONTEND_URL', nil)}/app/accounts/#{account.id}/conversations/#{conversation.display_id}|Click here> to view the conversation."
-  end
 
   before do
     allow(builder).to receive(:slack_client).and_return(slack_client)
@@ -34,21 +31,22 @@ describe Integrations::Slack::SendOnSlackService do
 
   describe '#perform' do
     context 'without identifier' do
-      it 'updates slack thread id in conversation' do
-        inbox = conversation.inbox
-
+      it 'posts the conversation header to the channel, then the message in its thread' do
+        expect(slack_client).to receive(:chat_postMessage).with(
+          hash_including(channel: hook.reference_id, unfurl_links: false, blocks: kind_of(Array), text: kind_of(String))
+        ).ordered.and_return({ 'ts' => 'header.ts' })
         expect(slack_client).to receive(:chat_postMessage).with(
           channel: hook.reference_id,
-          text: "\n*Inbox:* #{inbox.name} (#{inbox.inbox_type})\n#{conversation_link}\n\n#{message.content}",
+          text: message.content,
           username: "#{message.sender.name} (Contact)",
-          thread_ts: nil,
+          thread_ts: 'header.ts',
           icon_url: anything,
-          unfurl_links: false
-        ).and_return(slack_message)
+          unfurl_links: true
+        ).ordered.and_return(slack_message)
 
         builder.perform
 
-        expect(conversation.reload.identifier).to eq '12345.6789'
+        expect(conversation.reload.identifier).to eq 'header.ts'
       end
 
       context 'with subject line in email' do
@@ -60,23 +58,66 @@ describe Integrations::Slack::SendOnSlackService do
                  inbox: conversation.inbox, conversation: conversation)
         end
 
-        it 'creates slack message with subject line' do
-          inbox = conversation.inbox
-
-          expect(slack_client).to receive(:chat_postMessage).with(
-            channel: hook.reference_id,
-            text: "\n*Inbox:* #{inbox.name} (#{inbox.inbox_type})\n#{conversation_link}\n" \
-                  "*Subject:* Sample subject line\n\n\n#{message.content}",
-            username: "#{message.sender.name} (Contact)",
-            thread_ts: nil,
-            icon_url: anything,
-            unfurl_links: false
-          ).and_return(slack_message)
+        it 'shows the subject in the header and only the body in the thread' do
+          expect(slack_client).to receive(:chat_postMessage)
+            .with(hash_including(blocks: satisfy { |blocks| blocks.to_json.include?('*Sample subject line*') }))
+            .ordered.and_return({ 'ts' => 'header.ts' })
+          expect(slack_client).to receive(:chat_postMessage)
+            .with(hash_including(text: 'Sample Body', thread_ts: 'header.ts')).ordered.and_return(slack_message)
 
           builder.perform
-
-          expect(conversation.reload.identifier).to eq '12345.6789'
         end
+      end
+    end
+
+    context 'when the integration now posts to a different channel than the header' do
+      it 'posts a fresh header in the new channel and threads the message under it' do
+        conversation.update!(identifier: 'old.ts', additional_attributes: { 'slack_channel' => 'C_OLD' })
+
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(channel: hook.reference_id, blocks: kind_of(Array)))
+                                                          .ordered.and_return({ 'ts' => 'new.ts' })
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(thread_ts: 'new.ts')).ordered.and_return(slack_message)
+
+        builder.perform
+
+        expect(conversation.reload.identifier).to eq('new.ts')
+        expect(conversation.additional_attributes['slack_channel']).to eq(hook.reference_id)
+      end
+    end
+
+    context 'when the header thread was deleted in Slack' do
+      it 'posts a new header and retries the message in its thread' do
+        conversation.update!(identifier: 'gone.ts', additional_attributes: { 'slack_channel' => hook.reference_id })
+
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(thread_ts: 'gone.ts'))
+                                                          .ordered.and_raise(Slack::Web::Api::Errors::ThreadNotFound.new('thread_not_found'))
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(blocks: kind_of(Array))).ordered.and_return({ 'ts' => 'new.ts' })
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(thread_ts: 'new.ts')).ordered.and_return(slack_message)
+
+        builder.perform
+
+        expect(conversation.reload.identifier).to eq('new.ts')
+      end
+    end
+
+    context 'when an attachment-only message goes to a deleted thread' do
+      let(:message) { create(:message, :with_attachment, content: nil, account: account, inbox: conversation.inbox, conversation: conversation) }
+
+      it 'posts a new header and retries the upload in its thread' do
+        conversation.update!(identifier: 'gone.ts', additional_attributes: { 'slack_channel' => hook.reference_id })
+
+        expect(slack_client).to receive(:files_upload_v2).with(hash_including(thread_ts: 'gone.ts'))
+                                                         .ordered.and_raise(Slack::Web::Api::Errors::ThreadNotFound.new('thread_not_found'))
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(blocks: kind_of(Array))).ordered.and_return({ 'ts' => 'new.ts' })
+        expect(slack_client).to receive(:files_upload_v2).with(hash_including(thread_ts: 'new.ts')).ordered.and_return(true)
+
+        builder.perform
+
+        expect(conversation.reload.identifier).to eq('new.ts')
+        # marked as posted, so a replay or retry skips it rather than uploading the file again
+        expect(message.reload.external_source_id_slack).to eq('cw-upload-new.ts')
+        expect(slack_client).not_to receive(:files_upload_v2)
+        described_class.new(message: message.reload, hook: hook).perform
       end
     end
 
@@ -361,19 +402,14 @@ describe Integrations::Slack::SendOnSlackService do
     end
 
     context 'when message contains mentions' do
-      it 'sends formatted message to slack along with inbox name when identifier not present' do
-        inbox = conversation.inbox
+      it 'posts the formatted message in the new thread when identifier not present' do
         message.update!(content: "Hi [@#{contact.name}](mention://user/#{contact.id}/#{contact.name}), welcome to Chatwoot!")
-        formatted_message_text = message.content.gsub(RegexHelper::MENTION_REGEX, '\1')
+        formatted_message_text = message.content.gsub(RegexHelper::MENTION_REGEX, '\\1')
 
-        expect(slack_client).to receive(:chat_postMessage).with(
-          channel: hook.reference_id,
-          text: "\n*Inbox:* #{inbox.name} (#{inbox.inbox_type})\n#{conversation_link}\n\n#{formatted_message_text}",
-          username: "#{message.sender.name} (Contact)",
-          thread_ts: nil,
-          icon_url: anything,
-          unfurl_links: false
-        ).and_return(slack_message)
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(blocks: kind_of(Array))).ordered
+                                                          .and_return({ 'ts' => 'header.ts' })
+        expect(slack_client).to receive(:chat_postMessage)
+          .with(hash_including(text: formatted_message_text, thread_ts: 'header.ts')).ordered.and_return(slack_message)
 
         builder.perform
       end

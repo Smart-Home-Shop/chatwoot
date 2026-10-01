@@ -21,10 +21,11 @@ class Conversations::SpamTriageGate
     first_public_message == message
   end
 
-  # True when the caller must not run its side effect now: suspected spam drops it, a pending verdict records it
+  # True when the caller must not run its side effect now: suspected spam drops it, a pending verdict records it, and
+  # after the verdict it queues behind entries that are still being released, so side effects keep their order
   def hold(entry)
     return true if suspected_spam?
-    return false unless awaiting_verdict?
+    return false unless awaiting_verdict? || held?
 
     # Re-check under the lock: a verdict may have landed and its release drained the list meanwhile.
     # If the lock can't be had, fail open and let the side effect run now.
@@ -32,9 +33,16 @@ class Conversations::SpamTriageGate
       conversation.reload
       # A spam verdict that landed meanwhile drops the side effect rather than releasing it
       next true if suspected_spam?
-      next false unless awaiting_verdict?
 
-      record(entry)
+      if awaiting_verdict?
+        record(entry)
+      elsif held?
+        record(entry)
+        # The verdict is in, so release now rather than waiting for the fallback
+        Conversations::SpamTriageReleaseJob.perform_later(conversation)
+      else
+        next false
+      end
       true
     end
   end

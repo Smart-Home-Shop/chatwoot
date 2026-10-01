@@ -3,6 +3,9 @@
 class Conversations::SpamTriageReleaseJob < ApplicationJob
   queue_as :low
 
+  # Long enough for a post plus attachment upload
+  SLACK_LOCK_TIMEOUT = 30.seconds
+
   def perform(conversation)
     gate = Conversations::SpamTriageGate.new(conversation: conversation)
     # Still deciding: the triage job enqueues the release once it has a verdict
@@ -23,6 +26,8 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
       replay_for_message(conversation, entry) { |message| Messages::NewMessageNotificationService.new(message: message).perform }
     when 'conversation_creation', 'assignment'
       replay_alert(conversation, entry)
+    when 'slack'
+      replay_slack(conversation, entry)
     end
   end
 
@@ -38,6 +43,32 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
     else
       agent = conversation.inbox.members.find_by(id: entry['user_id'])
       NotificationListener.instance.notify_conversation_creation(conversation, agent) if agent
+    end
+  end
+
+  # Inline and in order, under the same mutex as SendOnSlackJob, so the header is posted with the first held message and
+  # the thread keeps its order. A busy mutex raises: the entry stays held and this job retries, rather than letting a
+  # deferred retry post out of order. Already-posted messages are skipped (external_source_id_slack), so retries can't repeat.
+  def replay_slack(conversation, entry)
+    hook = conversation.account.hooks.find_by(id: entry['hook_id'])
+    return if hook.blank? || hook.disabled?
+
+    replay_for_message(conversation, entry) do |message|
+      with_slack_lock(conversation, hook) { Integrations::Slack::SendOnSlackService.new(message: message, hook: hook).perform }
+    end
+  end
+
+  def with_slack_lock(conversation, hook)
+    key = format(::Redis::Alfred::SLACK_MESSAGE_MUTEX, conversation_id: conversation.id, reference_id: hook.reference_id)
+    lock_manager = Redis::LockManager.new
+    unless lock_manager.lock(key, SLACK_LOCK_TIMEOUT)
+      raise MutexApplicationJob::LockAcquisitionError, "Slack is busy for conversation #{conversation.id}"
+    end
+
+    begin
+      yield
+    ensure
+      lock_manager.unlock(key)
     end
   end
 

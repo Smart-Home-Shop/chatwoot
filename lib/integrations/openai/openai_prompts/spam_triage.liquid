@@ -24,5 +24,7 @@ Ignore boilerplate added by the business's own website form or email tracking, s
 
 Use "uncertain" only when the message genuinely could be more than one of these. Being brief, informal, or sent from a free email provider is not a sign of spam. A real customer may write badly; a pitch is often polished and generic.
 
+Also write a neutral summary of what the sender wants, for a team channel: one short sentence (at most 20 words), no greeting, no names or contact details.
+
 Respond with JSON only:
-{"verdict": "spam" | "notification" | "legit" | "uncertain", "confidence": <number from 0 to 1>, "reason": "<one short sentence an agent can read>"}
+{"verdict": "spam" | "notification" | "legit" | "uncertain", "confidence": <number from 0 to 1>, "reason": "<one short sentence an agent can read>", "summary": "<what the sender wants, at most 20 words>"}

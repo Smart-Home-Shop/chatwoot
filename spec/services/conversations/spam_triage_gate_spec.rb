@@ -56,6 +56,16 @@ RSpec.describe Conversations::SpamTriageGate do
       expect(gate.held_entries).to be_empty
     end
 
+    it 'queues behind entries still being released after the verdict, so side effects keep their order' do
+      gate.hold(entry)
+      conversation.update!(additional_attributes: { 'spam_triage' => { 'verdict' => 'legit' } })
+      later = { type: 'new_message', message_id: 42 }
+
+      expect { expect(described_class.new(conversation: conversation.reload).hold(later)).to be(true) }
+        .to have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
+      expect(gate.held_entries.map(&:last)).to eq([{ 'type' => 'conversation_creation' }, { 'type' => 'new_message', 'message_id' => 42 }])
+    end
+
     it 'lets the side effect run once there is a verdict' do
       conversation.update!(additional_attributes: { 'spam_triage' => { 'verdict' => 'legit' } })
 

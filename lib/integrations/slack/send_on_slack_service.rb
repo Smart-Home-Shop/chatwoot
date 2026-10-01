@@ -1,5 +1,6 @@
 class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   include RegexHelper
+  include Integrations::Slack::ConversationThreadHelper
   pattr_initialize [:message!, :hook!]
 
   def perform
@@ -39,6 +40,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
 
   def perform_reply
     send_message
+    return mark_attachment_only_posted if @slack_message.blank? && @uploaded
 
     return unless @slack_message
 
@@ -46,15 +48,18 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     update_external_source_id_slack
   end
 
+  # Text posts are marked by update_external_source_id_slack; an attachment-only post has no text ts, so mark it here so a
+  # replay or retry skips it instead of uploading again. Not 'cw-origin-' prefixed: it isn't an updatable Slack message.
+  def mark_attachment_only_posted
+    message.update!(external_source_id_slack: "cw-upload-#{conversation.identifier}")
+  end
+
+  # Messages always go in the conversation's thread; the channel shows only the conversation header
   def message_content
     private_indicator = message.private? ? 'private: ' : ''
     sanitized_content = ActionView::Base.full_sanitizer.sanitize(format_message_content)
 
-    if conversation.identifier.present?
-      "#{private_indicator}#{sanitized_content}"
-    else
-      "#{formatted_inbox_name}#{formatted_conversation_link}#{email_subject_line}\n#{sanitized_content}"
-    end
+    "#{private_indicator}#{sanitized_content}"
   end
 
   def format_message_content
@@ -71,23 +76,6 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     end
   end
 
-  def formatted_inbox_name
-    "\n*Inbox:* #{message.inbox.name} (#{message.inbox.inbox_type})\n"
-  end
-
-  def formatted_conversation_link
-    "#{link_to_conversation} to view the conversation.\n"
-  end
-
-  def email_subject_line
-    return '' unless message.inbox.email?
-
-    email_payload = message.content_attributes['email']
-    return "*Subject:* #{email_payload['subject']}\n\n" if email_payload.present? && email_payload['subject'].present?
-
-    ''
-  end
-
   def avatar_url(sender)
     sender_type = sender_type(sender).downcase
     blob_key = sender&.avatar&.attached? ? sender.avatar.blob.key : nil
@@ -100,6 +88,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   end
 
   def send_message
+    post_conversation_header if needs_conversation_header?
     post_message if message_content.present?
     upload_files if message.attachments.any?
   rescue Slack::Web::Api::Errors::IsArchived, Slack::Web::Api::Errors::AccountInactive, Slack::Web::Api::Errors::MissingScope,
@@ -110,18 +99,34 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     hook.disable
   end
 
+  # The header (and so the thread) was deleted in Slack: start a new header and post into its thread
   def post_message
+    post_thread_message
+  rescue *MISSING_THREAD_ERRORS
+    post_conversation_header
+    post_thread_message
+  end
+
+  def post_thread_message
     @slack_message = slack_client.chat_postMessage(
       channel: hook.reference_id,
       text: message_content,
       username: sender_name(message.sender),
       thread_ts: conversation.identifier,
       icon_url: avatar_url(message.sender),
-      unfurl_links: conversation.identifier.present?
+      unfurl_links: true
     )
   end
 
+  # Like text posts, an attachment whose thread was deleted starts a new header and retries under it
   def upload_files
+    upload_attachments
+  rescue *MISSING_THREAD_ERRORS
+    post_conversation_header
+    upload_attachments
+  end
+
+  def upload_attachments
     files = build_files_array
     return if files.empty?
 
@@ -133,6 +138,9 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
         channel_id: hook.reference_id
       )
       Rails.logger.info "slack_upload_result: #{result}"
+      @uploaded = true
+    rescue *MISSING_THREAD_ERRORS
+      raise
     rescue Slack::Web::Api::Errors::SlackError => e
       Rails.logger.error "Failed to upload files: #{e.message}"
     ensure
@@ -199,10 +207,6 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
 
   def slack_client
     @slack_client ||= Slack::Web::Client.new(token: hook.access_token)
-  end
-
-  def link_to_conversation
-    "<#{ENV.fetch('FRONTEND_URL', nil)}/app/accounts/#{conversation.account_id}/conversations/#{conversation.display_id}|Click here>"
   end
 
   # Determines whether the conversation identifier should be updated with the ts value.

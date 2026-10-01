@@ -41,15 +41,23 @@ class Captain::SpamTriageService < Captain::BaseTaskService
     parsed = JSON.parse(raw.match(/```json\s*(.*?)\s*```/m)&.captures&.first || raw)
     return { error: 'Invalid LLM response format' } unless valid_verdict?(parsed)
 
-    { verdict: parsed['verdict'], confidence: parsed['confidence'].to_f, reason: parsed['reason'].strip }
+    { verdict: parsed['verdict'], confidence: parsed['confidence'].to_f, reason: parsed['reason'].strip,
+      summary: parsed['summary'].to_s.strip.presence }
   rescue JSON::ParserError
     { error: 'Invalid LLM response format' }
   end
 
   def valid_verdict?(parsed)
-    parsed.is_a?(Hash) && VERDICTS.include?(parsed['verdict']) &&
-      parsed['confidence'].is_a?(Numeric) && parsed['confidence'].between?(0, 1) &&
-      parsed['reason'].is_a?(String) && parsed['reason'].strip.present?
+    parsed.is_a?(Hash) && VERDICTS.include?(parsed['verdict']) && valid_confidence?(parsed['confidence']) && valid_text?(parsed)
+  end
+
+  def valid_confidence?(confidence)
+    confidence.is_a?(Numeric) && confidence.between?(0, 1)
+  end
+
+  # The summary is optional: triage still works without it, the Slack post just falls back to the message text
+  def valid_text?(parsed)
+    parsed['reason'].is_a?(String) && parsed['reason'].strip.present? && (parsed['summary'].nil? || parsed['summary'].is_a?(String))
   end
 
   def event_name
