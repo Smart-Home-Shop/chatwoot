@@ -54,7 +54,14 @@ const loadMoreConversations = () => {
 
 provide('toggleContextMenu', onContextMenuToggle);
 
-defineExpose({ conversationListRef });
+// Rows are virtualized, so keyboard focus has to scroll off-screen rows into view
+const scrollToConversation = id => {
+  const index = props.conversationList.findIndex(item => item.id === id);
+  if (index !== -1)
+    virtualListRef.value?.scrollToIndex(index, { align: 'nearest' });
+};
+
+defineExpose({ conversationListRef, scrollToConversation });
 </script>
 
 <template>

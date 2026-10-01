@@ -3,7 +3,12 @@ import { computed, useId } from 'vue';
 import { useUISettings } from 'dashboard/composables/useUISettings';
 import ToggleSwitch from 'dashboard/components-next/switch/Switch.vue';
 
-defineProps({
+const props = defineProps({
+  // Key in the agent's UI settings this switch turns on/off
+  settingKey: {
+    type: String,
+    required: true,
+  },
   label: {
     type: String,
     default: '',
@@ -20,8 +25,8 @@ const descriptionId = useId();
 const { uiSettings, updateUISettings } = useUISettings();
 
 const isEnabled = computed({
-  get: () => !!uiSettings.value.expand_email_messages,
-  set: value => updateUISettings({ expand_email_messages: value }),
+  get: () => !!uiSettings.value[props.settingKey],
+  set: value => updateUISettings({ [props.settingKey]: value }),
 });
 </script>
 

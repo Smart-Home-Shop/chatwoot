@@ -1,6 +1,7 @@
 <script>
 import { ref } from 'vue';
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
+import { useGmailShortcuts } from 'dashboard/composables/useGmailShortcuts';
 import { useCaptain } from 'dashboard/composables/useCaptain';
 import { useTrack } from 'dashboard/composables';
 import { vOnClickOutside } from '@vueuse/components';
@@ -113,6 +114,7 @@ export default {
       },
     };
     useKeyboardEvents(keyboardEvents);
+    useGmailShortcuts({ REPLY: handleReplyClick });
 
     return {
       handleModeToggle,

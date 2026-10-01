@@ -32,6 +32,10 @@ import { useEmitter } from 'dashboard/composables/emitter';
 import { useConversationRequiredAttributes } from 'dashboard/composables/useConversationRequiredAttributes';
 
 import { emitter } from 'shared/helpers/mitt';
+import {
+  useGmailShortcuts,
+  focusedConversationId,
+} from 'dashboard/composables/useGmailShortcuts';
 
 import wootConstants from 'dashboard/constants/globals';
 import advancedFilterOptions from './widgets/conversation/advancedFilterItems';
@@ -873,6 +877,76 @@ provide('assignPriority', assignPriority);
 provide('isConversationSelected', isConversationSelected);
 provide('deleteConversation', handleDelete);
 
+// Gmail-style list keys. With a conversation open, j/k open the next/previous one (Gmail's reading pane);
+// on the list alone they move a highlight that o/Enter opens.
+const conversationListComponentRef = ref(null);
+const openConversationId = computed(
+  () => Number(route.params.conversation_id) || null
+);
+// The highlight outlives tab/filter changes, so only trust it while that conversation is still in this list
+const focusedIdInList = computed(() =>
+  conversationList.value.some(item => item.id === focusedConversationId.value)
+    ? focusedConversationId.value
+    : null
+);
+const keyboardTargetId = computed(
+  () => openConversationId.value || focusedIdInList.value
+);
+
+const PREFETCH_ROWS = 3;
+
+const moveInList = async step => {
+  const list = conversationList.value;
+  if (!list.length) return;
+  const index = list.findIndex(item => item.id === keyboardTargetId.value);
+  const nextIndex = index === -1 ? 0 : index + step;
+  const target = list[Math.min(Math.max(nextIndex, 0), list.length - 1)];
+
+  if (openConversationId.value) {
+    await router.push(buildConversationPath(target.id));
+  } else {
+    focusedConversationId.value = target.id;
+    conversationListComponentRef.value?.scrollToConversation(target.id);
+  }
+
+  // Nearing the last loaded row prefetches the next page so j can continue past it without a stall. This runs after
+  // the navigation settles: a list request aborted by the route change would otherwise leave the list stuck "loading".
+  if (list.indexOf(target) >= list.length - PREFETCH_ROWS)
+    loadMoreConversations();
+};
+
+const toggleSelected = () => {
+  const target = conversationList.value.find(
+    item => item.id === keyboardTargetId.value
+  );
+  if (!target) return;
+  if (isConversationSelected(target.id)) {
+    deSelectConversation(target.id, target.inbox_id);
+  } else {
+    selectConversation(target.id, target.inbox_id);
+  }
+};
+
+useGmailShortcuts({
+  NEXT: () => moveInList(1),
+  PREVIOUS: () => moveInList(-1),
+  OPEN: () => {
+    if (openConversationId.value || !focusedIdInList.value) return false;
+    router.push(buildConversationPath(focusedIdInList.value));
+    return true;
+  },
+  BACK_TO_LIST: () => {
+    if (!openConversationId.value) return;
+    // Keep the cursor on the conversation just left, as Gmail does
+    focusedConversationId.value = openConversationId.value;
+    redirectToConversationList();
+  },
+  SELECT: toggleSelected,
+  MARK_UNREAD: () => {
+    if (keyboardTargetId.value) markAsUnread(keyboardTargetId.value);
+  },
+});
+
 watch(activeTeam, () => resetAndFetchData());
 
 watch(
@@ -974,6 +1048,7 @@ watch(appliedFilters, () => resetBulkActions());
       @select-all-conversations="toggleSelectAll"
     />
     <ConversationList
+      ref="conversationListComponentRef"
       :conversation-list="conversationList"
       :is-loading="chatListLoading"
       :show-end-of-list-message="showEndOfListMessage"

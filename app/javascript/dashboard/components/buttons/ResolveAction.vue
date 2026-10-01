@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n';
 import { useStore, useStoreGetters } from 'dashboard/composables/store';
 import { useEmitter } from 'dashboard/composables/emitter';
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
+import { useGmailShortcuts } from 'dashboard/composables/useGmailShortcuts';
 import { useConversationRequiredAttributes } from 'dashboard/composables/useConversationRequiredAttributes';
 
 import WootDropdownItem from 'shared/components/ui/dropdown/DropdownItem.vue';
@@ -173,6 +174,19 @@ useKeyboardEvents(keyboardEvents);
 
 useEmitter(CMD_REOPEN_CONVERSATION, onCmdOpenConversation);
 useEmitter(CMD_RESOLVE_CONVERSATION, onCmdResolveConversation);
+
+// Gmail's "archive" maps to resolve, toggling back open when already resolved
+useGmailShortcuts({
+  RESOLVE: () =>
+    currentChat.value.status === wootConstants.STATUS_TYPE.RESOLVED
+      ? onCmdOpenConversation()
+      : onCmdResolveConversation(),
+  // Like Gmail's b, offer the snooze times rather than snoozing straight away
+  SNOOZE: () =>
+    document
+      .querySelector('ninja-keys')
+      ?.open({ parent: 'snooze_conversation' }),
+});
 </script>
 
 <template>

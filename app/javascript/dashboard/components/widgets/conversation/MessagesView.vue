@@ -5,6 +5,7 @@ import { useElementSize, useEventListener } from '@vueuse/core';
 import { useLabelSuggestions } from 'dashboard/composables/useLabelSuggestions';
 import { useCampaignHistory } from 'dashboard/composables/useCampaignHistory';
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
+import { useGmailShortcuts } from 'dashboard/composables/useGmailShortcuts';
 import { useSnakeCase } from 'dashboard/composables/useTransformKeys';
 import { CONTACT_CONVERSATION_NAVIGATION } from 'dashboard/composables/useContactConversationNavigation';
 
@@ -103,6 +104,16 @@ export default {
     useKeyboardEvents({
       'Alt+KeyP': { action: revealReplyBox, allowOnFocusedInput: false },
       'Alt+KeyL': { action: revealReplyBox, allowOnFocusedInput: false },
+    });
+    // Outside reading mode the reply box is already shown, so r just focuses it (the editor isn't auto-focused when shortcuts are on)
+    useGmailShortcuts({
+      REPLY: () => {
+        if (isReadingHistory.value) revealReplyBox();
+        else
+          nextTick(() =>
+            replyBoxRef.value?.messageEditor?.focusEditorInputField()
+          );
+      },
     });
     // ReplyBox attaches pasted files from anywhere on the page, folded or not.
     useEventListener(document, 'paste', e => {

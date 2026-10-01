@@ -3,6 +3,7 @@ import { defineAsyncComponent, getCurrentInstance, useTemplateRef } from 'vue';
 import { mapGetters } from 'vuex';
 import { useAlert } from 'dashboard/composables';
 import { useUISettings } from 'dashboard/composables/useUISettings';
+import { GMAIL_SHORTCUTS_SETTING } from 'dashboard/composables/useGmailShortcuts';
 import { useTrack } from 'dashboard/composables';
 import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
 
@@ -153,6 +154,8 @@ export default {
 
     return {
       uiSettings,
+      // Gmail-style shortcuts need the keyboard on opening a conversation, so the editor isn't auto-focused then
+      gmailShortcutsSetting: GMAIL_SHORTCUTS_SETTING,
       isEditorHotKeyEnabled,
       fetchSignatureFlagFromUISettings,
       messageEditor,
@@ -1419,6 +1422,7 @@ export default {
           v-else-if="!showAudioRecorderEditor"
           ref="messageEditor"
           v-model="message"
+          :focus-on-mount="!uiSettings[gmailShortcutsSetting]"
           :conversation-id="conversationId"
           :editor-id="editorStateId"
           class="input popover-prosemirror-menu resizable-editor-split"

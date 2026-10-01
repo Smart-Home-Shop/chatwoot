@@ -4,6 +4,7 @@ import { useIntervalFn } from '@vueuse/core';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import { useAlert } from 'dashboard/composables';
+import { useGmailShortcuts } from 'dashboard/composables/useGmailShortcuts';
 import Button from 'dashboard/components-next/button/Button.vue';
 import ConversationAPI from 'dashboard/api/inbox/conversation';
 
@@ -66,6 +67,15 @@ const undo = () => {
 // Leaving the thread mid-countdown applies the flag, as letting the timer run out would
 watch(() => props.conversationId, confirm);
 onUnmounted(confirm);
+
+useGmailShortcuts({
+  SPAM: () => {
+    if (!pendingConversationId.value) startFlag();
+  },
+  UNDO: () => {
+    if (pendingConversationId.value) undo();
+  },
+});
 </script>
 
 <template>
