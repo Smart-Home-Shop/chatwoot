@@ -34,15 +34,22 @@ class HookJob < MutexApplicationJob
   end
 
   def send_slack_message(hook, message)
-    # Held while spam triage decides (replayed by Conversations::SpamTriageReleaseJob); never posted for suspected spam
-    gate = Conversations::SpamTriageGate.new(conversation: message.conversation)
-    return if gate.hold(type: 'slack', message_id: message.id, hook_id: hook.id)
+    return if slack_post_held?(hook, message)
 
     if message.attachments.blank?
       ::SendOnSlackJob.perform_later(message, hook)
     else
       ::SendOnSlackJob.set(wait: 2.seconds).perform_later(message, hook)
     end
+  end
+
+  # Held while spam triage decides (replayed by Conversations::SpamTriageReleaseJob); never posted for suspected spam.
+  # This job swallows errors, so a failure to record the hold posts now (fail open) rather than losing the message.
+  def slack_post_held?(hook, message)
+    Conversations::SpamTriageGate.new(conversation: message.conversation).hold(type: 'slack', message_id: message.id, hook_id: hook.id)
+  rescue StandardError => e
+    Rails.logger.error "[Slack] could not hold message #{message.id} for spam triage, posting now: #{e.message}"
+    false
   end
 
   def update_slack_message(hook, event_data)

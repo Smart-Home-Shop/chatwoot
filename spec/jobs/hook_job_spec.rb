@@ -55,6 +55,19 @@ RSpec.describe HookJob do
       expect(SendOnSlackJob).not_to have_received(:perform_later)
     end
 
+    it 'posts to Slack right away if the spam triage hold cannot be recorded' do
+      hook = create(:integrations_hook, app_id: 'slack', account: account)
+      event_data # create the message before the gate is stubbed
+      gate = instance_double(Conversations::SpamTriageGate)
+      allow(gate).to receive(:hold).and_raise(Redis::CannotConnectError)
+      allow(Conversations::SpamTriageGate).to receive(:new).and_return(gate)
+      allow(SendOnSlackJob).to receive(:perform_later)
+
+      described_class.perform_now(hook, event_name, event_data)
+
+      expect(SendOnSlackJob).to have_received(:perform_later).with(event_data[:message], hook)
+    end
+
     it 'updates the Slack conversation header when the status or assignee changes' do
       hook = create(:integrations_hook, app_id: 'slack', account: account)
       conversation = event_data[:message].conversation
