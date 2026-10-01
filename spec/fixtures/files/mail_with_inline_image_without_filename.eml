@@ -1,0 +1,31 @@
+From: Sender <sender@example.com>
+To: reply+6bdc3f4d-0bed-4515-a284-5d916fdde489@example.com
+Subject: Inline image without a filename
+Date: Wed, 01 Oct 2026 10:00:00 +0000
+Message-ID: <inline-no-filename@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="REL"
+
+--REL
+Content-Type: multipart/alternative; boundary="ALT"
+
+--ALT
+Content-Type: text/plain; charset="UTF-8"
+
+Here is the screenshot of the fault
+
+--ALT
+Content-Type: text/html; charset="UTF-8"
+
+<div>Here is the screenshot of the fault<br><img src="cid:fault_photo"></div>
+
+--ALT--
+
+--REL
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <fault_photo>
+
+iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGO4o6EBRAwQCgAjrgSx
+n17XlQAAAABJRU5ErkJggg==
+--REL--
