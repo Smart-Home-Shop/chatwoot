@@ -87,6 +87,6 @@ a container restart (entrypoints run `bundle install` / `pnpm install --force` o
   `docker compose exec -T rails bundle exec rails runner 'u = User.find_by!(email: "john@acme.inc"); u.user_sessions.delete_all; u.update!(tokens: {})'`
 - **First page load after `up` is slow** (Vite transforms modules on demand, ~15s+); the driver waits up to 4 min.
 - A single `404` console error on the dashboard/contacts page is normal in this setup.
-- `fatal: detected dubious ownership in repository at '/app'` and ``the attribute `version` is obsolete`` warnings are harmless.
+- `fatal: detected dubious ownership in repository at '/app'` warnings are harmless.
 - Don't `pkill -f <pattern>` from a Bash tool call with the pattern in the same command line - it kills its own shell (exit 144).
 - `.claude/` is gitignored; this skill is force-added (`git add -f`).
