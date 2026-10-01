@@ -80,7 +80,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   end
 
   def send_message
-    post_conversation_header if conversation.identifier.blank?
+    post_conversation_header if needs_conversation_header?
     post_message if message_content.present?
     upload_files if message.attachments.any?
   rescue Slack::Web::Api::Errors::IsArchived, Slack::Web::Api::Errors::AccountInactive, Slack::Web::Api::Errors::MissingScope,
@@ -91,17 +91,37 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     hook.disable
   end
 
-  # The channel message for a new conversation; its ts becomes the thread the conversation's messages are posted in
+  # New to Slack, or its header lives in a channel the hook no longer posts to (the integration was reconnected elsewhere)
+  def needs_conversation_header?
+    return true if conversation.identifier.blank?
+
+    header_channel = conversation.additional_attributes&.dig('slack_channel')
+    header_channel.present? && header_channel != hook.reference_id
+  end
+
+  # The channel message for a conversation; its ts becomes the thread the conversation's messages are posted in.
+  # The channel is remembered so a reconnect to another channel starts a fresh header there.
   def post_conversation_header
     header = slack_client.chat_postMessage(
       channel: hook.reference_id,
       **Integrations::Slack::ConversationHeaderBuilder.new(conversation: conversation).payload,
       unfurl_links: false
     )
-    conversation.update!(identifier: header['ts'])
+    conversation.update!(
+      identifier: header['ts'],
+      additional_attributes: (conversation.additional_attributes || {}).merge('slack_channel' => hook.reference_id)
+    )
   end
 
+  # The header (and so the thread) was deleted in Slack: start a new header and post into its thread
   def post_message
+    post_thread_message
+  rescue Slack::Web::Api::Errors::ThreadNotFound
+    post_conversation_header
+    post_thread_message
+  end
+
+  def post_thread_message
     @slack_message = slack_client.chat_postMessage(
       channel: hook.reference_id,
       text: message_content,

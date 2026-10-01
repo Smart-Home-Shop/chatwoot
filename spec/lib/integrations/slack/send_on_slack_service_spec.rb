@@ -70,6 +70,36 @@ describe Integrations::Slack::SendOnSlackService do
       end
     end
 
+    context 'when the integration now posts to a different channel than the header' do
+      it 'posts a fresh header in the new channel and threads the message under it' do
+        conversation.update!(identifier: 'old.ts', additional_attributes: { 'slack_channel' => 'C_OLD' })
+
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(channel: hook.reference_id, blocks: kind_of(Array)))
+                                                          .ordered.and_return({ 'ts' => 'new.ts' })
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(thread_ts: 'new.ts')).ordered.and_return(slack_message)
+
+        builder.perform
+
+        expect(conversation.reload.identifier).to eq('new.ts')
+        expect(conversation.additional_attributes['slack_channel']).to eq(hook.reference_id)
+      end
+    end
+
+    context 'when the header thread was deleted in Slack' do
+      it 'posts a new header and retries the message in its thread' do
+        conversation.update!(identifier: 'gone.ts', additional_attributes: { 'slack_channel' => hook.reference_id })
+
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(thread_ts: 'gone.ts'))
+                                                          .ordered.and_raise(Slack::Web::Api::Errors::ThreadNotFound.new('thread_not_found'))
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(blocks: kind_of(Array))).ordered.and_return({ 'ts' => 'new.ts' })
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(thread_ts: 'new.ts')).ordered.and_return(slack_message)
+
+        builder.perform
+
+        expect(conversation.reload.identifier).to eq('new.ts')
+      end
+    end
+
     context 'with identifier' do
       before do
         conversation.update!(identifier: 'random_slack_thread_ts')

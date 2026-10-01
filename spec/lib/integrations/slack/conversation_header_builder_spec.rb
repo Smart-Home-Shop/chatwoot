@@ -41,6 +41,14 @@ describe Integrations::Slack::ConversationHeaderBuilder do
     expect(text).to include(':white_check_mark: Resolved', 'Assigned to Paul')
   end
 
+  it 'shows an agent bot or AI owner rather than unassigned' do
+    bot = create(:agent_bot, account: account, name: 'Captain Bot')
+    allow(conversation).to receive(:assigned_entity).and_return(bot)
+
+    text = described_class.new(conversation: conversation).payload[:blocks].last[:elements].first[:text]
+    expect(text).to include('Assigned to Captain Bot')
+  end
+
   it 'shows unassigned conversations and tags automated notifications' do
     conversation.update!(label_list: ['notification'])
 

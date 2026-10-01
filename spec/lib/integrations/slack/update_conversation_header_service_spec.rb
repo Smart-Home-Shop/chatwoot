@@ -22,6 +22,16 @@ describe Integrations::Slack::UpdateConversationHeaderService do
     expect(slack_client).not_to have_received(:chat_update)
   end
 
+  it 'prompts reauthorization and disables the hook when the Slack connection is unusable' do
+    allow(slack_client).to receive(:chat_update).and_raise(Slack::Web::Api::Errors::InvalidAuth.new('invalid_auth'))
+    allow(hook).to receive(:prompt_reauthorization!)
+
+    described_class.new(conversation: conversation, hook: hook).perform
+
+    expect(hook).to have_received(:prompt_reauthorization!)
+    expect(hook.reload).to be_disabled
+  end
+
   it 'ignores a header that no longer exists in Slack' do
     allow(slack_client).to receive(:chat_update).and_raise(Slack::Web::Api::Errors::MessageNotFound.new('message_not_found'))
 

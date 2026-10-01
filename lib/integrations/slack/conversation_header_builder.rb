@@ -56,8 +56,10 @@ class Integrations::Slack::ConversationHeaderBuilder
     "#{STATUS_EMOJI.fetch(conversation.status, '')} #{t("status.#{conversation.status}")}".strip
   end
 
+  # assigned_entity covers Captain/AI owners as well as agents
   def assignee_text
-    conversation.assignee ? t('assigned_to', name: escape(conversation.assignee.name)) : t('unassigned')
+    owner = conversation.assigned_entity
+    owner ? t('assigned_to', name: escape(owner.name)) : t('unassigned')
   end
 
   def open_button
