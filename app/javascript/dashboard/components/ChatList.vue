@@ -880,8 +880,10 @@ provide('deleteConversation', handleDelete);
 // Gmail-style list keys. With a conversation open, j/k open the next/previous one (Gmail's reading pane);
 // on the list alone they move a highlight that o/Enter opens.
 const conversationListComponentRef = ref(null);
+// Most conversation routes use :conversation_id; team, mentions, unattended and participating use :conversationId
 const openConversationId = computed(
-  () => Number(route.params.conversation_id) || null
+  () =>
+    Number(route.params.conversation_id || route.params.conversationId) || null
 );
 // The highlight outlives tab/filter changes, so only trust it while that conversation is still in this list
 const focusedIdInList = computed(() =>
@@ -933,6 +935,12 @@ useGmailShortcuts({
   OPEN: () => {
     if (openConversationId.value || !focusedIdInList.value) return false;
     router.push(buildConversationPath(focusedIdInList.value));
+    // The open thread is now the target; u puts the cursor back on it. Release the row's DOM focus too, or assistive
+    // tech stays on that row (it remains mounted in the condensed layout) while keys act on the open thread.
+    focusedConversationId.value = null;
+    if (document.activeElement?.closest('.conversations-list')) {
+      document.activeElement.blur();
+    }
     return true;
   },
   BACK_TO_LIST: () => {

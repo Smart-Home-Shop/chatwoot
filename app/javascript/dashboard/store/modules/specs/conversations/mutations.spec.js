@@ -807,14 +807,18 @@ describe('#mutations', () => {
   });
 
   describe('#MUTE_CONVERSATION', () => {
-    it('should mute selected conversation', () => {
+    it('should mute the requested conversation, not the selected one', () => {
       const state = {
-        allConversations: [{ id: 1, muted: false }],
-        selectedChatId: 1,
+        allConversations: [
+          { id: 1, muted: false },
+          { id: 2, muted: false },
+        ],
+        selectedChatId: 2,
       };
 
-      mutations[types.MUTE_CONVERSATION](state);
+      mutations[types.MUTE_CONVERSATION](state, 1);
       expect(state.allConversations[0].muted).toBe(true);
+      expect(state.allConversations[1].muted).toBe(false);
     });
   });
 
@@ -825,7 +829,7 @@ describe('#mutations', () => {
         selectedChatId: 1,
       };
 
-      mutations[types.UNMUTE_CONVERSATION](state);
+      mutations[types.UNMUTE_CONVERSATION](state, 1);
       expect(state.allConversations[0].muted).toBe(false);
     });
   });

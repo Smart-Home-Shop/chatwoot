@@ -582,22 +582,15 @@ const actions = {
     commit(types.SET_ACTIVE_INBOX, inboxId);
   },
 
+  // Rejections propagate so callers only report success once blocking actually happened
   muteConversation: async ({ commit }, conversationId) => {
-    try {
-      await ConversationApi.mute(conversationId);
-      commit(types.MUTE_CONVERSATION);
-    } catch (error) {
-      //
-    }
+    await ConversationApi.mute(conversationId);
+    commit(types.MUTE_CONVERSATION, conversationId);
   },
 
   unmuteConversation: async ({ commit }, conversationId) => {
-    try {
-      await ConversationApi.unmute(conversationId);
-      commit(types.UNMUTE_CONVERSATION);
-    } catch (error) {
-      //
-    }
+    await ConversationApi.unmute(conversationId);
+    commit(types.UNMUTE_CONVERSATION, conversationId);
   },
 
   sendEmailTranscript: async (_, { conversationId, email }) => {

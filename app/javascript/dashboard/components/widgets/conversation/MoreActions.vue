@@ -55,29 +55,34 @@ const actionMenuItems = computed(() => {
   return items;
 });
 
+const mute = async () => {
+  try {
+    await store.dispatch('muteConversation', currentChat.value.id);
+    useAlert(t('CONTACT_PANEL.MUTED_SUCCESS'));
+  } catch {
+    useAlert(t('CONTACT_PANEL.MUTE_ERROR'));
+  }
+};
+
+const unmute = async () => {
+  try {
+    await store.dispatch('unmuteConversation', currentChat.value.id);
+    useAlert(t('CONTACT_PANEL.UNMUTED_SUCCESS'));
+  } catch {
+    useAlert(t('CONTACT_PANEL.UNMUTE_ERROR'));
+  }
+};
+
 const handleActionClick = ({ action }) => {
   toggleDropdown(false);
 
   if (action === 'mute') {
-    store.dispatch('muteConversation', currentChat.value.id);
-    useAlert(t('CONTACT_PANEL.MUTED_SUCCESS'));
+    mute();
   } else if (action === 'unmute') {
-    store.dispatch('unmuteConversation', currentChat.value.id);
-    useAlert(t('CONTACT_PANEL.UNMUTED_SUCCESS'));
+    unmute();
   } else if (action === 'send_transcript') {
     toggleEmailModal();
   }
-};
-
-// These functions are needed for the event listeners
-const mute = () => {
-  store.dispatch('muteConversation', currentChat.value.id);
-  useAlert(t('CONTACT_PANEL.MUTED_SUCCESS'));
-};
-
-const unmute = () => {
-  store.dispatch('unmuteConversation', currentChat.value.id);
-  useAlert(t('CONTACT_PANEL.UNMUTED_SUCCESS'));
 };
 
 emitter.on(CMD_MUTE_CONVERSATION, mute);

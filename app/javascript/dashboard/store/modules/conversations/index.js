@@ -196,14 +196,15 @@ export const mutations = {
     conversation.status = status;
   },
 
-  [types.MUTE_CONVERSATION](_state) {
-    const [chat] = getSelectedChatConversation(_state);
-    chat.muted = true;
+  // By id, not the selected chat: the agent may have switched threads while the request was in flight
+  [types.MUTE_CONVERSATION](_state, conversationId) {
+    const chat = _state.allConversations.find(c => c.id === conversationId);
+    if (chat) chat.muted = true;
   },
 
-  [types.UNMUTE_CONVERSATION](_state) {
-    const [chat] = getSelectedChatConversation(_state);
-    chat.muted = false;
+  [types.UNMUTE_CONVERSATION](_state, conversationId) {
+    const chat = _state.allConversations.find(c => c.id === conversationId);
+    if (chat) chat.muted = false;
   },
 
   [types.ADD_CONVERSATION_ATTACHMENTS](_state, message) {

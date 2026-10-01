@@ -66,8 +66,10 @@ const currentContact = computed(() =>
 );
 
 const isActiveChat = computed(() => currentChat.value.id === props.source.id);
+// The list cursor only shows while no conversation is open; with one open, j/k act on the open thread
 const isKeyboardFocused = computed(
-  () => !isActiveChat.value && focusedConversationId.value === props.source.id
+  () =>
+    !currentChat.value?.id && focusedConversationId.value === props.source.id
 );
 
 // Move real focus to the highlighted row so assistive tech announces which conversation o/x will act on

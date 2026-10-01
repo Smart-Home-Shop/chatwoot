@@ -114,7 +114,12 @@ export default {
       },
     };
     useKeyboardEvents(keyboardEvents);
-    useGmailShortcuts({ REPLY: handleReplyClick });
+    // Switching mode clears attachments, so r only switches out of note mode; MessagesView handles the focus
+    useGmailShortcuts({
+      REPLY: () => {
+        if (props.mode !== REPLY_EDITOR_MODES.REPLY) handleReplyClick();
+      },
+    });
 
     return {
       handleModeToggle,
