@@ -99,9 +99,18 @@ class Conversations::SpamTriageGate
     first_hold = Redis::Alfred.llen(held_key).zero?
     Redis::Alfred.lpush(held_key, raw)
     Redis::Alfred.expire(held_key, HELD_TTL)
-    # Fallback at the hold deadline in case triage never decides; it does nothing if the verdict already released all
+    schedule_fallback_release(raw) if first_hold
+  end
+
+  # Fallback at the hold deadline in case triage never decides; it does nothing if the verdict already released all.
+  # If it can't be scheduled, un-record the entry so the caller's retry records it again and schedules the fallback.
+  def schedule_fallback_release(raw)
     deadline = conversation.created_at + AWAIT_WINDOW
-    Conversations::SpamTriageReleaseJob.set(wait_until: deadline).perform_later(conversation) if first_hold
+    raise 'Could not schedule spam triage fallback release' unless
+      Conversations::SpamTriageReleaseJob.set(wait_until: deadline).perform_later(conversation)
+  rescue StandardError
+    remove_held(raw)
+    raise
   end
 
   # Owner-token lock: only the holder can release it, so an expired lease can't delete a later owner's lock.

@@ -33,8 +33,8 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
     return if Notification.exists?(user_id: entry['user_id'], primary_actor: conversation, notification_type: type)
 
     if entry['type'] == 'assignment'
-      # Only the assignment that was actually held, and only if it still stands
-      NotificationListener.instance.notify_assignee(conversation) if conversation.assignee_id == entry['user_id']
+      # Only the assignment that was actually held, and only if it still stands (reloaded: it may have just changed)
+      NotificationListener.instance.notify_assignee(conversation) if conversation.reload.assignee_id == entry['user_id']
     else
       agent = conversation.inbox.members.find_by(id: entry['user_id'])
       NotificationListener.instance.notify_conversation_creation(conversation, agent) if agent

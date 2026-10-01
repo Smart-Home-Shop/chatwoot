@@ -47,6 +47,15 @@ RSpec.describe Conversations::SpamTriageGate do
       expect(gate.held_entries).to be_empty
     end
 
+    it 'un-records the entry when the fallback release cannot be scheduled, so a retry can schedule it' do
+      job = class_double(Conversations::SpamTriageReleaseJob)
+      allow(Conversations::SpamTriageReleaseJob).to receive(:set).and_return(job)
+      allow(job).to receive(:perform_later).and_raise(RedisClient::CannotConnectError)
+
+      expect { gate.hold(entry) }.to raise_error(RedisClient::CannotConnectError)
+      expect(gate.held_entries).to be_empty
+    end
+
     it 'lets the side effect run once there is a verdict' do
       conversation.update!(additional_attributes: { 'spam_triage' => { 'verdict' => 'legit' } })
 
