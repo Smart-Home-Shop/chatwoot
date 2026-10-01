@@ -9,10 +9,9 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
     # Still deciding: the triage job enqueues the release once it has a verdict
     return if gate.awaiting_verdict?
 
-    gate.held_entries.each do |raw, entry|
-      replay(conversation, entry)
-      gate.remove_held(raw)
-    end
+    drained = gate.drain_held { |entry| replay(conversation, entry) }
+    # Another release or a recording holds the lock; come back once it's done
+    self.class.set(wait: 5.seconds).perform_later(conversation) unless drained
   end
 
   private
@@ -24,7 +23,8 @@ class Conversations::SpamTriageReleaseJob < ApplicationJob
     when 'new_message'
       replay_for_message(conversation, entry) { |message| Messages::NewMessageNotificationService.new(message: message).perform }
     when 'conversation_creation'
-      NotificationListener.instance.notify_conversation_creation(conversation)
+      agent = conversation.inbox.members.find_by(id: entry['user_id'])
+      NotificationListener.instance.notify_conversation_creation(conversation, agent) if agent
     when 'assignment'
       # Only the assignment that was actually held, and only if it still stands
       NotificationListener.instance.notify_assignee(conversation) if conversation.assignee_id == entry['user_id']

@@ -5,6 +5,9 @@ class Conversations::SpamTriageGate
   # A verdict normally lands within seconds; after this, holding stops and anything held is released (fail open)
   AWAIT_WINDOW = 10.minutes
   HELD_TTL = 1.day
+  # Recording and draining share one per-conversation lock so neither can miss or repeat the other's entries
+  LOCK_TIMEOUT = 30.seconds
+  LOCK_WAIT = 3.seconds
 
   pattr_initialize [:conversation!]
 
@@ -23,8 +26,26 @@ class Conversations::SpamTriageGate
     return true if suspected_spam?
     return false unless awaiting_verdict?
 
-    record(entry)
-    true
+    # Re-check under the lock: a verdict may have landed and its release drained the list meanwhile.
+    # If the lock can't be had, fail open and let the side effect run now.
+    !!with_lock(wait: LOCK_WAIT) do
+      conversation.reload
+      next false unless awaiting_verdict?
+
+      record(entry)
+      true
+    end
+  end
+
+  # Yields each held entry oldest first, removing it once handled; false if another drain holds the lock
+  def drain_held
+    with_lock do
+      held_entries.each do |raw, entry|
+        yield entry
+        remove_held(raw)
+      end
+      true
+    end
   end
 
   def awaiting_verdict?
@@ -68,8 +89,29 @@ class Conversations::SpamTriageGate
     first_hold = Redis::Alfred.llen(held_key).zero?
     Redis::Alfred.lpush(held_key, raw)
     Redis::Alfred.expire(held_key, HELD_TTL)
-    # Fallback in case triage never decides; the job does nothing if the verdict already released everything
-    Conversations::SpamTriageReleaseJob.set(wait: AWAIT_WINDOW).perform_later(conversation) if first_hold
+    # Fallback at the hold deadline in case triage never decides; it does nothing if the verdict already released all
+    deadline = conversation.created_at + AWAIT_WINDOW
+    Conversations::SpamTriageReleaseJob.set(wait_until: deadline).perform_later(conversation) if first_hold
+  end
+
+  def with_lock(wait: 0)
+    lock_manager = Redis::LockManager.new
+    give_up_at = Time.current + wait
+    until lock_manager.lock(lock_key, LOCK_TIMEOUT)
+      return false if Time.current >= give_up_at
+
+      sleep 0.05
+    end
+
+    begin
+      yield
+    ensure
+      lock_manager.unlock(lock_key)
+    end
+  end
+
+  def lock_key
+    format(::Redis::RedisKeys::SPAM_TRIAGE_HELD_LOCK, conversation_id: conversation.id)
   end
 
   def held_key

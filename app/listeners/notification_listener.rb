@@ -16,9 +16,13 @@ class NotificationListener < BaseListener
   def conversation_created(event)
     conversation = extract_conversation_and_account(event)[0]
     return if conversation.pending?
-    return if spam_triage_hold(conversation, type: 'conversation_creation')
 
-    notify_conversation_creation(conversation)
+    # Held per agent, so a partly failed release only resends to the agents it missed
+    conversation.inbox.members.each do |agent|
+      next if spam_triage_hold(conversation, type: 'conversation_creation', user_id: agent.id)
+
+      notify_conversation_creation(conversation, agent)
+    end
   end
 
   def assignee_changed(event)
@@ -45,15 +49,13 @@ class NotificationListener < BaseListener
   end
 
   # Public so Conversations::SpamTriageReleaseJob can replay alerts held during spam triage
-  def notify_conversation_creation(conversation)
-    conversation.inbox.members.each do |agent|
-      NotificationBuilder.new(
-        notification_type: 'conversation_creation',
-        user: agent,
-        account: conversation.account,
-        primary_actor: conversation
-      ).perform
-    end
+  def notify_conversation_creation(conversation, agent)
+    NotificationBuilder.new(
+      notification_type: 'conversation_creation',
+      user: agent,
+      account: conversation.account,
+      primary_actor: conversation
+    ).perform
   end
 
   def notify_assignee(conversation)

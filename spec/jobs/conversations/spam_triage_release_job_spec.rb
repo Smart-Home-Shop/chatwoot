@@ -45,6 +45,17 @@ RSpec.describe Conversations::SpamTriageReleaseJob do
       expect(NotificationListener.instance).not_to have_received(:notify_assignee)
     end
 
+    it 'reschedules itself instead of draining while another release holds the lock' do
+      lock_key = format(Redis::RedisKeys::SPAM_TRIAGE_HELD_LOCK, conversation_id: conversation.id)
+      Redis::LockManager.new.lock(lock_key, 30)
+
+      expect { described_class.perform_now(conversation) }.to have_enqueued_job(described_class).with(conversation)
+      expect(hook_service).not_to have_received(:perform)
+      expect(gate.held_entries.size).to eq(2)
+    ensure
+      Redis::LockManager.new.unlock(lock_key)
+    end
+
     it 'keeps the entries that did not run when a replay fails, for the retry' do
       allow(hook_service).to receive(:perform).and_raise(StandardError, 'boom')
 

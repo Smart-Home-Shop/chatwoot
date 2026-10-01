@@ -17,11 +17,23 @@ RSpec.describe Conversations::SpamTriageGate do
   after { gate.discard_held }
 
   describe '#hold' do
-    it 'records the entry once and schedules a fallback release while a new contact thread awaits its verdict' do
-      expect { gate.hold(entry) }.to have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
+    it 'records the entry once and schedules a fallback release at the hold deadline' do
+      deadline = conversation.created_at + described_class::AWAIT_WINDOW
+
+      expect { gate.hold(entry) }
+        .to have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation).at(deadline)
       expect(gate.hold(entry)).to be(true)
 
       expect(gate.held_entries.map(&:last)).to eq([{ 'type' => 'conversation_creation' }])
+    end
+
+    it 'lets the side effect run when a verdict lands while it waits for the lock' do
+      stale_gate = described_class.new(conversation: Conversation.find(conversation.id))
+      # awaiting before the lock, decided by the time the lock is held and the conversation is reloaded
+      allow(stale_gate).to receive(:awaiting_verdict?).and_return(true, false)
+
+      expect(stale_gate.hold(entry)).to be(false)
+      expect(gate.held_entries).to be_empty
     end
 
     it 'lets the side effect run once there is a verdict' do
