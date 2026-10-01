@@ -112,4 +112,8 @@ module Redis::RedisKeys
   DEVICE_VERIFICATION_ATTEMPTS = 'DEVICE_VERIFICATION::ATTEMPTS::%<user_id>d::%<jti>s'.freeze
   # Rolling per-user challenge issuance budget
   DEVICE_VERIFICATION_ISSUANCE = 'DEVICE_VERIFICATION::ISSUANCE::%<user_id>d'.freeze
+
+  # Auto-replies and notifications held while spam triage decides on a conversation (JSON entries)
+  SPAM_TRIAGE_HELD = 'SPAM_TRIAGE::HELD::%<conversation_id>d'.freeze
+  SPAM_TRIAGE_HELD_LOCK = 'SPAM_TRIAGE::HELD_LOCK::%<conversation_id>d'.freeze
 end

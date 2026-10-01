@@ -69,20 +69,21 @@ RSpec.describe Conversations::SpamTriageJob do
     expect(conversation.additional_attributes.dig('spam_triage', 'verdict')).to eq('legit')
   end
 
-  it 'raises and stores nothing when the service fails, so the job is retried' do
-    allow(service).to receive(:perform).and_return(error: 'Invalid LLM response format')
+  context 'when releasing auto-replies and alerts held during triage' do
+    it 'enqueues the release once the verdict is recorded' do
+      allow(service).to receive(:perform).and_return(verdict: 'legit', confidence: 0.95, reason: 'Order query.', message: '{}')
 
-    expect { described_class.perform_now(message) }.to raise_error(RuntimeError, /Spam triage failed/)
-    expect(conversation.reload.additional_attributes).not_to have_key('spam_triage')
-  end
+      expect { described_class.perform_now(message) }
+        .to have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
+    end
 
-  it 'rolls back the verdict when flagging fails' do
-    allow(service).to receive(:perform).and_return(spam_result)
-    allow(Messages::MessageBuilder).to receive(:new).and_raise(ActiveRecord::RecordInvalid)
+    it 'records an error verdict, still enqueues the release and raises when the service fails' do
+      allow(service).to receive(:perform).and_return(error: 'Invalid LLM response format')
 
-    expect { described_class.perform_now(message) }.to raise_error(ActiveRecord::RecordInvalid)
-    conversation.reload
-    expect(conversation.additional_attributes).not_to have_key('spam_triage')
-    expect(conversation.label_list).to be_empty
+      expect { described_class.perform_now(message) }
+        .to raise_error(RuntimeError, /Spam triage failed/)
+        .and have_enqueued_job(Conversations::SpamTriageReleaseJob).with(conversation)
+      expect(conversation.reload.additional_attributes.dig('spam_triage', 'verdict')).to eq('error')
+    end
   end
 end
