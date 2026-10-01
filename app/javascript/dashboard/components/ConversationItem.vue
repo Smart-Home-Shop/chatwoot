@@ -72,10 +72,15 @@ const isKeyboardFocused = computed(
 
 // Move real focus to the highlighted row so assistive tech announces which conversation o/x will act on
 const cardRef = ref(null);
-watch(isKeyboardFocused, focused => {
-  if (focused)
-    nextTick(() => cardRef.value?.$el?.focus({ preventScroll: true }));
-});
+// immediate: a virtualized row scrolled into view mounts already focused, so there is no change to react to
+watch(
+  isKeyboardFocused,
+  focused => {
+    if (focused)
+      nextTick(() => cardRef.value?.$el?.focus({ preventScroll: true }));
+  },
+  { immediate: true }
+);
 
 const inbox = computed(() => {
   const inboxId = props.source.inbox_id;
