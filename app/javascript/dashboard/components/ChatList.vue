@@ -935,8 +935,12 @@ useGmailShortcuts({
   OPEN: () => {
     if (openConversationId.value || !focusedIdInList.value) return false;
     router.push(buildConversationPath(focusedIdInList.value));
-    // The open thread is now the target; u puts the cursor back on it
+    // The open thread is now the target; u puts the cursor back on it. Release the row's DOM focus too, or assistive
+    // tech stays on that row (it remains mounted in the condensed layout) while keys act on the open thread.
     focusedConversationId.value = null;
+    if (document.activeElement?.closest('.conversations-list')) {
+      document.activeElement.blur();
+    }
     return true;
   },
   BACK_TO_LIST: () => {

@@ -514,6 +514,14 @@ RSpec.describe Conversation do
       expect(conversation.reload.contact.blocked?).to be(true)
     end
 
+    it 'leaves the conversation open when the contact cannot be blocked' do
+      allow(conversation.contact).to receive(:update!).and_raise(ActiveRecord::RecordInvalid.new(conversation.contact))
+
+      expect { mute! }.to raise_error(ActiveRecord::RecordInvalid)
+      expect(conversation.reload).to be_open
+      expect(conversation.contact.reload.blocked?).to be(false)
+    end
+
     it 'creates mute message' do
       mute!
       expect(Conversations::ActivityMessageJob)
