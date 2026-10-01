@@ -116,4 +116,6 @@ module Redis::RedisKeys
   # Auto-replies and notifications held while spam triage decides on a conversation (JSON entries)
   SPAM_TRIAGE_HELD = 'SPAM_TRIAGE::HELD::%<conversation_id>d'.freeze
   SPAM_TRIAGE_HELD_LOCK = 'SPAM_TRIAGE::HELD_LOCK::%<conversation_id>d'.freeze
+  # Held while a conversation's triage LLM call runs, so duplicate jobs don't call it twice
+  SPAM_TRIAGE_RUN_LOCK = 'SPAM_TRIAGE::RUN_LOCK::%<conversation_id>d'.freeze
 end
