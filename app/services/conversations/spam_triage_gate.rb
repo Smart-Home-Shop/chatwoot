@@ -150,6 +150,6 @@ class Conversations::SpamTriageGate
   end
 
   def first_public_message
-    conversation.messages.where(message_type: [:incoming, :outgoing], private: false).order(:id).first
+    conversation.messages.where(message_type: [:incoming, :outgoing], private: false).reorder(:id).first
   end
 end
