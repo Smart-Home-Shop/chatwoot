@@ -935,6 +935,8 @@ useGmailShortcuts({
   OPEN: () => {
     if (openConversationId.value || !focusedIdInList.value) return false;
     router.push(buildConversationPath(focusedIdInList.value));
+    // The open thread is now the target; u puts the cursor back on it
+    focusedConversationId.value = null;
     return true;
   },
   BACK_TO_LIST: () => {
