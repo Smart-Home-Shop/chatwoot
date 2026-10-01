@@ -7,10 +7,16 @@ export const GMAIL_SHORTCUTS_SETTING = 'keyboard_shortcuts_enabled';
 // Single source for the bindings and the help overlay. Keys mirror Gmail where Chatwoot has an equivalent.
 // `keys` use tinykeys syntax: letters match event.key, space-separated keys are sequences ("g i").
 // Symbols are bound as characters (not Shift+…) so they work on layouts where they're unshifted, e.g. AZERTY's !.
+// `repeatable` lets a held key auto-repeat (list movement); every other action fires once per press.
 // `joiner` tells the overlay how to read `display`: 'or' = alternatives, 'then' = a sequence, unset = pressed together.
 export const GMAIL_SHORTCUTS = {
-  NEXT: { keys: ['j'], display: ['J'], group: 'NAVIGATION' },
-  PREVIOUS: { keys: ['k'], display: ['K'], group: 'NAVIGATION' },
+  NEXT: { keys: ['j'], display: ['J'], group: 'NAVIGATION', repeatable: true },
+  PREVIOUS: {
+    keys: ['k'],
+    display: ['K'],
+    group: 'NAVIGATION',
+    repeatable: true,
+  },
   OPEN: {
     keys: ['o', 'Enter'],
     display: ['O', 'Enter'],
@@ -86,6 +92,7 @@ export function useGmailShortcuts(actions, { allowOverOverlay = [] } = {}) {
     GMAIL_SHORTCUTS[id].keys.forEach(key => {
       events[key] = e => {
         if (!uiSettings.value?.[GMAIL_SHORTCUTS_SETTING]) return;
+        if (e.repeat && !GMAIL_SHORTCUTS[id].repeatable) return;
         if (hasCommandModifier(e) || isShiftedLetter(key, e)) return;
         if (isEnterOnInteractiveElement(e)) return;
         if (!allowOverOverlay.includes(id) && isOverlayOpen()) return;

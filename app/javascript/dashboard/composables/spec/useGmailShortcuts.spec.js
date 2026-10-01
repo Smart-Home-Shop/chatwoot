@@ -130,6 +130,18 @@ describe('useGmailShortcuts', () => {
     expect(help).toHaveBeenCalled();
   });
 
+  it('ignores auto-repeat for actions but keeps it for list movement', () => {
+    const next = vi.fn();
+    const select = vi.fn();
+    useGmailShortcuts({ NEXT: next, SELECT: select });
+
+    shortcutsMock.registered.j(keyEvent({ repeat: true }));
+    shortcutsMock.registered.x(keyEvent({ key: 'x', repeat: true }));
+
+    expect(next).toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
+  });
+
   it('leaves the default behaviour when the action reports it did nothing', () => {
     useGmailShortcuts({ OPEN: () => false });
     const event = keyEvent({ key: 'o' });
