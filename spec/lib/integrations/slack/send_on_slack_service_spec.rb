@@ -114,6 +114,10 @@ describe Integrations::Slack::SendOnSlackService do
         builder.perform
 
         expect(conversation.reload.identifier).to eq('new.ts')
+        # marked as posted, so a replay or retry skips it rather than uploading the file again
+        expect(message.reload.external_source_id_slack).to eq('cw-upload-new.ts')
+        expect(slack_client).not_to receive(:files_upload_v2)
+        described_class.new(message: message.reload, hook: hook).perform
       end
     end
 

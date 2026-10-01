@@ -1,8 +1,7 @@
 class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   include RegexHelper
+  include Integrations::Slack::ConversationThreadHelper
   pattr_initialize [:message!, :hook!]
-
-  MISSING_THREAD_ERRORS = [Slack::Web::Api::Errors::ThreadNotFound, Slack::Web::Api::Errors::InvalidThreadTs].freeze
 
   def perform
     # overriding the base class logic since the validations are different in this case.
@@ -41,11 +40,18 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
 
   def perform_reply
     send_message
+    return mark_attachment_only_posted if @slack_message.blank? && @uploaded
 
     return unless @slack_message
 
     update_reference_id
     update_external_source_id_slack
+  end
+
+  # Text posts are marked by update_external_source_id_slack; an attachment-only post has no text ts, so mark it here so a
+  # replay or retry skips it instead of uploading again. Not 'cw-origin-' prefixed: it isn't an updatable Slack message.
+  def mark_attachment_only_posted
+    message.update!(external_source_id_slack: "cw-upload-#{conversation.identifier}")
   end
 
   # Messages always go in the conversation's thread; the channel shows only the conversation header
@@ -93,28 +99,6 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     hook.disable
   end
 
-  # New to Slack, or its header lives in a channel the hook no longer posts to (the integration was reconnected elsewhere)
-  def needs_conversation_header?
-    return true if conversation.identifier.blank?
-
-    header_channel = conversation.additional_attributes&.dig('slack_channel')
-    header_channel.present? && header_channel != hook.reference_id
-  end
-
-  # The channel message for a conversation; its ts becomes the thread the conversation's messages are posted in.
-  # The channel is remembered so a reconnect to another channel starts a fresh header there.
-  def post_conversation_header
-    header = slack_client.chat_postMessage(
-      channel: hook.reference_id,
-      **Integrations::Slack::ConversationHeaderBuilder.new(conversation: conversation).payload,
-      unfurl_links: false
-    )
-    conversation.update!(
-      identifier: header['ts'],
-      additional_attributes: (conversation.additional_attributes || {}).merge('slack_channel' => hook.reference_id)
-    )
-  end
-
   # The header (and so the thread) was deleted in Slack: start a new header and post into its thread
   def post_message
     post_thread_message
@@ -154,6 +138,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
         channel_id: hook.reference_id
       )
       Rails.logger.info "slack_upload_result: #{result}"
+      @uploaded = true
     rescue *MISSING_THREAD_ERRORS
       raise
     rescue Slack::Web::Api::Errors::SlackError => e

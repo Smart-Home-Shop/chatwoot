@@ -22,6 +22,7 @@ class Integrations::Slack::ConversationHeaderBuilder
   FALLBACK_SUMMARY_LENGTH = 150
   # Keep the header compact whatever the subject or model returns; Slack rejects section text over 3,000 characters
   SUBJECT_LENGTH = 200
+  AI_SUMMARY_WORDS = 20
   AI_SUMMARY_LENGTH = 250
   SECTION_TEXT_LIMIT = 3000
   NOTIFICATION_LABEL = Conversations::SpamTriageJob::LABELS['notification'][:title]
@@ -92,8 +93,15 @@ class Integrations::Slack::ConversationHeaderBuilder
   end
 
   def summary
-    @summary ||= conversation.additional_attributes&.dig('spam_triage', 'summary')&.squish&.truncate(AI_SUMMARY_LENGTH).presence ||
-                 first_incoming_message&.content.to_s.squish.truncate(FALLBACK_SUMMARY_LENGTH).presence
+    @summary ||= ai_summary.presence || first_incoming_message&.content.to_s.squish.truncate(FALLBACK_SUMMARY_LENGTH).presence
+  end
+
+  # The prompt asks for at most 20 words; enforce it, since a model can ignore the instruction
+  def ai_summary
+    words = conversation.additional_attributes&.dig('spam_triage', 'summary').to_s.split
+    summary = words.first(AI_SUMMARY_WORDS).join(' ')
+    summary += '…' if words.size > AI_SUMMARY_WORDS
+    summary.truncate(AI_SUMMARY_LENGTH)
   end
 
   def sender

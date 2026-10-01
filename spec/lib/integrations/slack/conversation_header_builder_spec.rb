@@ -65,6 +65,13 @@ describe Integrations::Slack::ConversationHeaderBuilder do
     expect(headline.lines[2].length).to be <= described_class::AI_SUMMARY_LENGTH
   end
 
+  it 'caps the AI summary at 20 words' do
+    conversation.update!(additional_attributes: { 'spam_triage' => { 'summary' => (1..50).map { |i| "w#{i}" }.join(' ') } })
+
+    headline = described_class.new(conversation: conversation.reload).payload[:blocks].first.dig(:text, :text)
+    expect(headline.lines.last).to eq("#{(1..20).map { |i| "w#{i}" }.join(' ')}…")
+  end
+
   it 'has a plain fallback text for Slack notifications' do
     expect(payload[:text]).to eq('Where is my order? — Sarah Jones &lt;sarah@example.com&gt; — Support &amp; Sales')
   end
