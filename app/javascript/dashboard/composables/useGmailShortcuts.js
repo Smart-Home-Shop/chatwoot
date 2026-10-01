@@ -47,10 +47,14 @@ export const GMAIL_SHORTCUT_GROUPS = ['NAVIGATION', 'ACTIONS'];
 // Gmail's list cursor: the row j/k highlights when no conversation is open
 export const focusedConversationId = ref(null);
 
-// Keys must not fire while the command palette or a modal owns the keyboard
-const isOverlayOpen = () =>
+// Modal UI other than the legacy .modal-mask: native dialogs, ARIA-modal side panels and the command palette
+export const isNonLegacyOverlayOpen = () =>
   !!document.querySelector('ninja-keys')?.visible ||
-  !!document.querySelector('.modal-mask, dialog[open]');
+  !!document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]');
+
+// Keys must not fire while the command palette or any modal owns the keyboard
+const isOverlayOpen = () =>
+  isNonLegacyOverlayOpen() || !!document.querySelector('.modal-mask');
 
 // Ctrl/Cmd/Alt combinations belong to the browser and the existing Alt shortcuts
 const hasCommandModifier = e => e.ctrlKey || e.metaKey || e.altKey;
