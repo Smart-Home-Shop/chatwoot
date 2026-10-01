@@ -6,19 +6,18 @@ class Conversations::SpamTriageJob < ApplicationJob
     'notification' => { title: 'notification', color: '#6B7280' }
   }.freeze
   CONFIDENCE_THRESHOLD = 0.7
-  # Longer than an LLM call can take; it only expires early if a worker dies mid-triage
-  RUN_LOCK_TIMEOUT = 5.minutes
 
   def perform(message)
     conversation = message.conversation
     return if triaged?(conversation)
 
     # One triage per conversation at a time, so a duplicate delivery doesn't pay for a second LLM call. The run that
-    # holds the lock records the verdict and releases what was held (and Sidekiq retries it if it fails).
+    # holds the lock records the verdict and releases what was held. An LLM error is recorded as an 'error' verdict
+    # (fail open) and not re-triaged; only a run that dies before recording anything is picked up again.
     token = SecureRandom.uuid
     lock_key = format(::Redis::RedisKeys::SPAM_TRIAGE_RUN_LOCK, conversation_id: conversation.id)
     # Busy: come back once the lease has run out, in case its holder died; the triaged? guard makes this cheap otherwise
-    return retry_after_lease(message, lock_key) unless Redis::Alfred.set(lock_key, token, nx: true, ex: RUN_LOCK_TIMEOUT)
+    return retry_after_lease(message, lock_key) unless Redis::Alfred.set(lock_key, token, nx: true, ex: run_lock_timeout)
 
     begin
       # Another run may have recorded the verdict between our check and taking the lock
@@ -29,6 +28,12 @@ class Conversations::SpamTriageJob < ApplicationJob
   end
 
   private
+
+  # Outlasts the longest possible LLM call (every RubyLLM retry hitting its request timeout), so the lease can only
+  # expire under a run that has died
+  def run_lock_timeout
+    ((RubyLLM.config.max_retries + 1) * RubyLLM.config.request_timeout) + 60
+  end
 
   def retry_after_lease(message, lock_key)
     remaining = Redis::Alfred.ttl(lock_key)
