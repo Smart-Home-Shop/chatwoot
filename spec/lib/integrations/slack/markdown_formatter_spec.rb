@@ -10,16 +10,22 @@ describe Integrations::Slack::MarkdownFormatter do
   end
 
   it 'converts bold, italic, strike, links, lists and headings to Slack mrkdwn' do
-    text = "# Update\n**Order** shipped, see [tracking](https://example.com/t?a=1) and *soon* ~~not~~.\n- one\n- two"
+    text = "# Update\n**Order** shipped, see [tracking](https://example.com/t?a=1&b=2) and *soon* ~~not~~.\n\n- one\n- two\n\n1. first\n2. second"
 
-    expect(to_mrkdwn(text)).to eq("*Update*\n*Order* shipped, see <https://example.com/t?a=1|tracking> and _soon_ ~not~.\n• one\n• two")
+    expect(to_mrkdwn(text)).to eq(
+      "*Update*\n\n*Order* shipped, see <https://example.com/t?a=1&amp;b=2|tracking> and _soon_ ~not~.\n\n• one\n• two\n\n1. first\n2. second"
+    )
   end
 
-  it 'removes backslash escapes' do
-    expect(to_mrkdwn('Price 5\.00 \- 10\% off\!')).to eq('Price 5.00 - 10\% off!')
+  it 'quotes every line of a blockquote' do
+    expect(to_mrkdwn("Thanks\n\n> On Thu wrote:\n>\n> Hello **there**\n> again")).to eq("Thanks\n\n> On Thu wrote:\n> \n> Hello *there*\n> again")
   end
 
-  it 'leaves code as written' do
-    expect(to_mrkdwn("Run `a\\_b **x**` then\n```\n**y** \\\n```")).to eq("Run `a\\_b **x**` then\n```\n**y** \\\n```")
+  it 'removes backslash escapes and escapes Slack control characters' do
+    expect(to_mrkdwn('Price 5\.00 \- 3 < 4 & <b>bold</b>')).to eq('Price 5.00 - 3 &lt; 4 &amp; &lt;b&gt;bold&lt;/b&gt;')
+  end
+
+  it 'leaves code as written, including spans delimited by several backticks' do
+    expect(to_mrkdwn("Run ``a`b **x**`` then\n\n```\n**y** \\\n```")).to eq("Run `a`b **x**` then\n\n```\n**y** \\\n```")
   end
 end

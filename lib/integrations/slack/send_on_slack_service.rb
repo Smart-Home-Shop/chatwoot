@@ -57,12 +57,15 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   # Messages always go in the conversation's thread; the channel shows only the conversation header
   def message_content
     private_indicator = message.private? ? 'private: ' : ''
-    sanitized_content = ActionView::Base.full_sanitizer.sanitize(format_message_content)
-    # Agent replies and notes are written in the editor's Markdown; customer messages are left as sent.
-    # After sanitizing, which would otherwise strip Slack's <url|text> links.
-    sanitized_content = Integrations::Slack::MarkdownFormatter.new(sanitized_content).perform unless message.incoming?
+    # Agent replies and notes are written in the editor's Markdown, which the formatter parses and escapes for Slack;
+    # customer messages are left as sent
+    content = if message.incoming?
+                ActionView::Base.full_sanitizer.sanitize(format_message_content)
+              else
+                Integrations::Slack::MarkdownFormatter.new(format_message_content).perform
+              end
 
-    "#{private_indicator}#{sanitized_content}"
+    "#{private_indicator}#{content}"
   end
 
   def format_message_content
