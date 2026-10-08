@@ -17,6 +17,10 @@ describe Integrations::Slack::MarkdownFormatter do
     )
   end
 
+  it 'does not double the bold of a bold heading' do
+    expect(to_mrkdwn("# **Update** now\nText")).to eq("*Update now*\n\nText")
+  end
+
   it 'quotes every line of a blockquote' do
     expect(to_mrkdwn("Thanks\n\n> On Thu wrote:\n>\n> Hello **there**\n> again")).to eq("Thanks\n\n> On Thu wrote:\n> \n> Hello *there*\n> again")
   end

@@ -3,6 +3,8 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   include Integrations::Slack::ConversationThreadHelper
   pattr_initialize [:message!, :hook!]
 
+  BLOCK_START = /\A(>|```|• |\d+\. )/
+
   def perform
     # overriding the base class logic since the validations are different in this case.
     # FIXME: for now we will only send messages from widget to slack
@@ -64,6 +66,9 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
               else
                 Integrations::Slack::MarkdownFormatter.new(format_message_content).perform
               end
+
+    # A note that opens with a quote, list or code block keeps it at the start of a line
+    private_indicator = "private:\n" if message.private? && content.to_s.match?(BLOCK_START)
 
     "#{private_indicator}#{content}"
   end

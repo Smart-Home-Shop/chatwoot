@@ -137,6 +137,17 @@ describe Integrations::Slack::SendOnSlackService do
         service.perform
       end
 
+      it 'puts the private marker on its own line when a note opens with a quote' do
+        note = create(:message, message_type: :outgoing, private: true, content: "> quoted\n\nsee above", account: account,
+                                inbox: conversation.inbox, conversation: conversation)
+
+        expect(slack_client).to receive(:chat_postMessage).with(hash_including(text: "private:\n> quoted\n\nsee above")).and_return(slack_message)
+
+        service = described_class.new(message: note, hook: hook)
+        allow(service).to receive(:slack_client).and_return(slack_client)
+        service.perform
+      end
+
       it 'posts customer messages as sent' do
         incoming = create(:message, message_type: :incoming, content: 'Is it **really** 5\\.00?', account: account,
                                     inbox: conversation.inbox, conversation: conversation)

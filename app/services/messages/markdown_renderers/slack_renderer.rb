@@ -45,9 +45,16 @@ class Messages::MarkdownRenderers::SlackRenderer < Messages::MarkdownRenderers::
     out('~', :children, '~')
   end
 
+  # A heading is already bold, so bold inside it isn't wrapped again
   def header(_node)
+    @in_header = true
     out('*', :children, '*')
+    @in_header = false
     blankline
+  end
+
+  def strong(node)
+    @in_header ? out(:children) : super
   end
 
   def list_item(_node)
