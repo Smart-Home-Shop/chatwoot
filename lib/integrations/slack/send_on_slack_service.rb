@@ -58,6 +58,9 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   def message_content
     private_indicator = message.private? ? 'private: ' : ''
     sanitized_content = ActionView::Base.full_sanitizer.sanitize(format_message_content)
+    # Agent replies and notes are written in the editor's Markdown; customer messages are left as sent.
+    # After sanitizing, which would otherwise strip Slack's <url|text> links.
+    sanitized_content = Integrations::Slack::MarkdownFormatter.new(sanitized_content).perform unless message.incoming?
 
     "#{private_indicator}#{sanitized_content}"
   end
