@@ -3,6 +3,8 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   include Integrations::Slack::ConversationThreadHelper
   pattr_initialize [:message!, :hook!]
 
+  BLOCK_START = /\A(>|```|• |\d+\. )/
+
   def perform
     # overriding the base class logic since the validations are different in this case.
     # FIXME: for now we will only send messages from widget to slack
@@ -57,9 +59,18 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   # Messages always go in the conversation's thread; the channel shows only the conversation header
   def message_content
     private_indicator = message.private? ? 'private: ' : ''
-    sanitized_content = ActionView::Base.full_sanitizer.sanitize(format_message_content)
+    # Agent replies and notes are written in the editor's Markdown, which the formatter parses and escapes for Slack;
+    # customer messages are left as sent
+    content = if message.incoming?
+                ActionView::Base.full_sanitizer.sanitize(format_message_content)
+              else
+                Integrations::Slack::MarkdownFormatter.new(format_message_content).perform
+              end
 
-    "#{private_indicator}#{sanitized_content}"
+    # A note that opens with a quote, list or code block keeps it at the start of a line
+    private_indicator = "private:\n" if message.private? && content.to_s.match?(BLOCK_START)
+
+    "#{private_indicator}#{content}"
   end
 
   def format_message_content
