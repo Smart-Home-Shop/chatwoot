@@ -12,17 +12,22 @@ class Messages::MarkdownRenderers::SlackRenderer < Messages::MarkdownRenderers::
     blankline
   end
 
-  def list(_node)
+  # The inherited list state is a single slot, so keep the outer list's across a nested one
+  def list(node)
+    outer = [@list_type, @list_item_number]
     super
-    blankline
+    @list_type, @list_item_number = outer
+    node.parent&.type == :list_item ? cr : blankline
   end
 
   def text(node)
     out(escape(node.string_content))
   end
 
+  # Slack inline code can't contain a backtick, so such a span goes out as preformatted text instead
   def code(node)
-    out('`', escape(node.string_content), '`')
+    content = escape(node.string_content)
+    content.include?('`') ? out('```', content, '```') : out('`', content, '`')
   end
 
   def code_block(node)

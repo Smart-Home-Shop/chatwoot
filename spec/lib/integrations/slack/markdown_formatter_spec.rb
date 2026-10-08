@@ -26,6 +26,11 @@ describe Integrations::Slack::MarkdownFormatter do
   end
 
   it 'leaves code as written, including spans delimited by several backticks' do
-    expect(to_mrkdwn("Run ``a`b **x**`` then\n\n```\n**y** \\\n```")).to eq("Run `a`b **x**` then\n\n```\n**y** \\\n```")
+    expect(to_mrkdwn("Run `a **x**` or ``a`b **x**`` then\n\n```\n**y** \\\n```"))
+      .to eq("Run `a **x**` or ```a`b **x**``` then\n\n```\n**y** \\\n```")
+  end
+
+  it 'keeps numbering an ordered list after a nested bullet list' do
+    expect(to_mrkdwn("1. first\n   - detail\n2. second")).to eq("1. first\n• detail\n2. second")
   end
 end
