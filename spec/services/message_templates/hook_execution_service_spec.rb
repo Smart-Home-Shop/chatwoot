@@ -214,6 +214,26 @@ describe MessageTemplates::HookExecutionService do
         expect(out_of_office_service).not_to have_received(:perform)
       end
 
+      it 'still calls ::MessageTemplates::Template::OutOfOffice after an automation message' do
+        contact = create(:contact)
+        conversation = create(:conversation, contact: contact)
+
+        conversation.inbox.update(working_hours_enabled: true, out_of_office_message: 'We are out of office')
+        conversation.inbox.working_hours.today.update!(closed_all_day: true)
+
+        create(:message, conversation: conversation, account: conversation.account, message_type: :outgoing,
+                         content_attributes: { automation_rule_id: 1 }, created_at: 3.days.ago)
+
+        out_of_office_service = double
+        allow(MessageTemplates::Template::OutOfOffice).to receive(:new).and_return(out_of_office_service)
+        allow(out_of_office_service).to receive(:perform).and_return(true)
+
+        create(:message, conversation: conversation, account: conversation.account)
+
+        expect(conversation.reload.first_reply_created_at).to be_nil
+        expect(out_of_office_service).to have_received(:perform)
+      end
+
       it 'ignores private note and calls ::MessageTemplates::Template::OutOfOffice' do
         contact = create(:contact)
         conversation = create(:conversation, contact: contact)
