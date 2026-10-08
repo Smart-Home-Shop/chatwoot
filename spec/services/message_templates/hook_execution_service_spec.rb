@@ -194,15 +194,15 @@ describe MessageTemplates::HookExecutionService do
       expect(out_of_office_service).to have_received(:perform)
     end
 
-    context 'with recent outgoing messages' do
-      it 'does not call ::MessageTemplates::Template::OutOfOffice when there are recent outgoing messages' do
+    context 'when an agent has already replied' do
+      it 'does not call ::MessageTemplates::Template::OutOfOffice in the ongoing conversation' do
         contact = create(:contact)
         conversation = create(:conversation, contact: contact)
 
         conversation.inbox.update(working_hours_enabled: true, out_of_office_message: 'We are out of office')
         conversation.inbox.working_hours.today.update!(closed_all_day: true)
 
-        create(:message, conversation: conversation, account: conversation.account, message_type: :outgoing, created_at: 2.minutes.ago)
+        create(:message, conversation: conversation, account: conversation.account, message_type: :outgoing, created_at: 3.days.ago)
 
         out_of_office_service = double
         allow(MessageTemplates::Template::OutOfOffice).to receive(:new).and_return(out_of_office_service)
