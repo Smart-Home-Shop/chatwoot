@@ -190,6 +190,7 @@ export default {
       assignableAgentsUiFlags: 'inboxAssignableAgents/getUIFlags',
       currentUser: 'getCurrentUser',
       currentAccountId: 'getCurrentAccountId',
+      hasBotConnectedInbox: 'inboxes/hasBotConnectedInbox',
     }),
     filteredAgentOnAvailability() {
       const agents = this.$store.getters[
@@ -272,6 +273,12 @@ export default {
       }
     },
     show(key) {
+      // Pending only means something when a bot handles conversations
+      if (
+        key === wootConstants.STATUS_TYPE.PENDING &&
+        !this.hasBotConnectedInbox
+      )
+        return false;
       // If the conversation status is same as the action, then don't display the option
       // i.e.: Don't show an option to resolve if the conversation is already resolved.
       return this.status !== key;

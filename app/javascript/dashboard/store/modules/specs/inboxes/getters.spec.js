@@ -404,4 +404,20 @@ describe('#getters', () => {
       expect(result[0].name).toBe('fallback_template');
     });
   });
+
+  it('hasBotConnectedInbox', () => {
+    expect(
+      getters.hasBotConnectedInbox({
+        records: [{ id: 1, bot_connected: false }, { id: 2 }],
+      })
+    ).toBe(false);
+    expect(
+      getters.hasBotConnectedInbox({
+        records: [
+          { id: 1, bot_connected: false },
+          { id: 2, bot_connected: true },
+        ],
+      })
+    ).toBe(true);
+  });
 });

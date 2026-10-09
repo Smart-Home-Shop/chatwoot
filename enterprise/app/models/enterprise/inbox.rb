@@ -12,6 +12,10 @@ module Enterprise::Inbox
     super || captain_active?
   end
 
+  def bot_connected?
+    super || captain_assistant.present?
+  end
+
   def captain_active?
     captain_assistant.present? && more_responses?
   end

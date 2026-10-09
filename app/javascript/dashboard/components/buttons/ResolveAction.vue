@@ -49,6 +49,11 @@ const isSnoozed = computed(
   () => currentChat.value.status === wootConstants.STATUS_TYPE.SNOOZED
 );
 
+// Pending is for bot-handled conversations; without a bot it's a dead end (a customer reply doesn't reopen it)
+const showMarkPending = computed(
+  () => !isPending.value && getters['inboxes/hasBotConnectedInbox'].value
+);
+
 const showAdditionalActions = computed(
   () => !isPending.value && !isSnoozed.value
 );
@@ -255,7 +260,7 @@ useGmailShortcuts({
             @click="() => openSnoozeModal()"
           />
         </WootDropdownItem>
-        <WootDropdownItem v-if="!isPending">
+        <WootDropdownItem v-if="showMarkPending">
           <Button
             :label="t('CONVERSATION.RESOLVE_DROPDOWN.MARK_PENDING')"
             ghost

@@ -134,6 +134,21 @@ RSpec.describe Inbox do
     end
   end
 
+  describe '#bot_connected?' do
+    let(:inbox) { create(:inbox) }
+
+    it 'is true when a Captain assistant is connected, even out of responses' do
+      assistant = create(:captain_assistant, account: inbox.account)
+      create(:captain_inbox, captain_assistant: assistant, inbox: inbox)
+
+      expect(inbox.reload.bot_connected?).to be(true)
+    end
+
+    it 'is false without an agent bot or Captain assistant' do
+      expect(inbox.bot_connected?).to be(false)
+    end
+  end
+
   describe 'validations' do
     describe 'account inbox limit' do
       let(:account) { create(:account, limits: { inboxes: 1 }) }

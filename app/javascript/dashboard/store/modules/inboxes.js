@@ -98,6 +98,10 @@ export const getters = {
   getUIFlags($state) {
     return $state.uiFlags;
   },
+  // Pending is for bot-handled conversations, so it's only offered when some inbox has a bot connected
+  hasBotConnectedInbox($state) {
+    return $state.records.some(inbox => inbox.bot_connected);
+  },
   getWebsiteInboxes($state) {
     return $state.records.filter(item => item.channel_type === INBOX_TYPES.WEB);
   },
