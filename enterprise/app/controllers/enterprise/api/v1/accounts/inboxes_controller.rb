@@ -1,6 +1,9 @@
 module Enterprise::Api::V1::Accounts::InboxesController
   extend ActiveSupport::Concern
 
+  # The inbox JSON's bot_connected also checks for a Captain assistant
+  def index = @inboxes = super.includes(:captain_inbox)
+
   def inbox_attributes
     super + ee_inbox_attributes
   end

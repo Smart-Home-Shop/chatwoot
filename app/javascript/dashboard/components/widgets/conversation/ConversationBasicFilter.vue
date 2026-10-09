@@ -29,6 +29,7 @@ const { updateUISettings } = useUISettings();
 
 const chatStatusFilter = useMapGetter('getChatStatusFilter');
 const chatSortFilter = useMapGetter('getChatSortFilter');
+const hasBotConnectedInbox = useMapGetter('inboxes/hasBotConnectedInbox');
 
 const [showActionsDropdown, toggleDropdown] = useToggle();
 
@@ -51,10 +52,15 @@ const chatStatusOptions = computed(() => [
     label: t('CHAT_LIST.CHAT_STATUS_FILTER_ITEMS.resolved.TEXT'),
     value: 'resolved',
   },
-  {
-    label: t('CHAT_LIST.CHAT_STATUS_FILTER_ITEMS.pending.TEXT'),
-    value: 'pending',
-  },
+  // Pending is for bot-handled conversations; keep it while selected so the filter isn't left showing nothing
+  ...(hasBotConnectedInbox.value || currentStatusFilter.value === 'pending'
+    ? [
+        {
+          label: t('CHAT_LIST.CHAT_STATUS_FILTER_ITEMS.pending.TEXT'),
+          value: 'pending',
+        },
+      ]
+    : []),
   {
     label: t('CHAT_LIST.CHAT_STATUS_FILTER_ITEMS.snoozed.TEXT'),
     value: 'snoozed',

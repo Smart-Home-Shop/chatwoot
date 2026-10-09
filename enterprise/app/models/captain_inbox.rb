@@ -19,4 +19,7 @@ class CaptainInbox < ApplicationRecord
   belongs_to :inbox
 
   validates :inbox_id, uniqueness: true
+
+  # The inbox JSON reports whether a bot is connected (bot_connected), so refresh the cached inbox list
+  after_commit -> { inbox&.update_account_cache }
 end
