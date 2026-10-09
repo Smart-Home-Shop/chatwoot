@@ -13,7 +13,7 @@ module Enterprise::Inbox
   end
 
   def bot_connected?
-    super || captain_assistant.present?
+    super || captain_inbox.present?
   end
 
   def captain_active?

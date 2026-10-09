@@ -21,6 +21,9 @@ class AgentBotInbox < ApplicationRecord
   belongs_to :account
   enum status: { active: 0, inactive: 1 }
 
+  # The inbox JSON reports whether a bot is connected (bot_connected), so refresh the cached inbox list
+  after_commit -> { inbox&.update_account_cache }
+
   private
 
   def ensure_account_id

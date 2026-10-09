@@ -21,6 +21,8 @@ class Integrations::Hook < ApplicationRecord
   before_validation :ensure_hook_type, on: :create
   before_validation :normalize_shopify_reference_id, if: :shopify?
   after_create :trigger_setup_if_crm
+  # A Dialogflow hook counts as a connected bot in the inbox JSON (bot_connected), so refresh the cached inbox list
+  after_commit -> { inbox.update_account_cache }, if: -> { app_id == 'dialogflow' && inbox.present? }
 
   # TODO: Remove guard once encryption keys become mandatory (target 3-4 releases out).
   encrypts :access_token, deterministic: true if Chatwoot.encryption_configured?
