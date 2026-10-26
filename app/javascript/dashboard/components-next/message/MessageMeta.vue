@@ -90,7 +90,8 @@ const isDelivered = computed(() => {
     isASmsInbox.value ||
     isAFacebookInbox.value ||
     isAnInstagramChannel.value ||
-    isATiktokChannel.value
+    isATiktokChannel.value ||
+    isAnEmailChannel.value
   ) {
     return sourceId.value && status.value === MESSAGE_STATUS.DELIVERED;
   }
@@ -115,7 +116,8 @@ const isRead = computed(() => {
     isATwilioChannel.value ||
     isAFacebookInbox.value ||
     isAnInstagramChannel.value ||
-    isATiktokChannel.value
+    isATiktokChannel.value ||
+    isAnEmailChannel.value
   ) {
     return sourceId.value && status.value === MESSAGE_STATUS.READ;
   }
