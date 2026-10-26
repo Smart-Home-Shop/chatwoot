@@ -7,7 +7,8 @@ class Webhooks::MailgunEventsJob < ApplicationJob
 
     # Outgoing email replies keep the Message-ID Chatwoot generated as their source_id
     message = Message.where(message_type: %i[outgoing template]).find_by(source_id: event.dig('message', 'headers', 'message-id'))
-    return if message.blank?
+    # Events arrive per recipient; keep a bounce visible even if another recipient (To/CC) later delivers
+    return if message.blank? || (message.failed? && status != 'failed')
 
     Messages::StatusUpdateService.new(message, status, status == 'failed' ? external_error(event) : nil).perform
   end
